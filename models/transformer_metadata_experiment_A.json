@@ -1,0 +1,88 @@
+{
+    "experiment": "A",
+    "description": "25-feature native categorical tabular Transformer dataset",
+    "numeric_features": [
+        "Age",
+        "Gestational Age",
+        "Number of sons",
+        "Number of daughters",
+        "Total Number of Children"
+    ],
+    "categorical_features": [
+        "Gravida",
+        "Female Education",
+        "Husband Education",
+        "Working Status",
+        "Physical Health",
+        "Previous Miscarriage",
+        "Sufficient Money for Basic Needs",
+        "Current Appereance Acceptance",
+        "Family System",
+        "Male Gender Preference",
+        "Relationship with Mother in-law"
+    ],
+    "symptom_features": [
+        "Little interest or pleasure in doing things",
+        "Feeling down, depressed, or hopeless",
+        "Trouble falling or staying sleep or sleeping too much",
+        "Feeling tired or having little energy",
+        "Poor appetite or overeating",
+        "Feeling badabout yourself that you are failure or have let yourself or your family down",
+        "Trouble concentrating on things, such as reading the newspaper or watching television",
+        "Moving or speaking so slowly that other people could have Noticed.",
+        "Thoughts that you would be better off dead, or of hurting yourself"
+    ],
+    "num_numeric_features": 5,
+    "num_categorical_features": 11,
+    "num_symptom_features": 9,
+    "num_total_features": 25,
+    "train_numeric_shape": [
+        4905,
+        5
+    ],
+    "validation_numeric_shape": [
+        1051,
+        5
+    ],
+    "test_numeric_shape": [
+        1052,
+        5
+    ],
+    "train_categorical_shape": [
+        4905,
+        11
+    ],
+    "validation_categorical_shape": [
+        1051,
+        11
+    ],
+    "test_categorical_shape": [
+        1052,
+        11
+    ],
+    "train_symptom_shape": [
+        4905,
+        9
+    ],
+    "validation_symptom_shape": [
+        1051,
+        9
+    ],
+    "test_symptom_shape": [
+        1052,
+        9
+    ],
+    "category_cardinalities": {
+        "Gravida": 4,
+        "Female Education": 7,
+        "Husband Education": 7,
+        "Working Status": 3,
+        "Physical Health": 3,
+        "Previous Miscarriage": 3,
+        "Sufficient Money for Basic Needs": 4,
+        "Current Appereance Acceptance": 3,
+        "Family System": 3,
+        "Male Gender Preference": 4,
+        "Relationship with Mother in-law": 4
+    }
+}

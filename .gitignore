@@ -1,0 +1,9 @@
+# ML model files
+*.joblib
+*.pkl
+*.pickle
+
+# Python
+__pycache__/
+*.pyc
+.venv/
