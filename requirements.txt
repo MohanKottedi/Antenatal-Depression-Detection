@@ -4,4 +4,6 @@ joblib
 numpy
 fastapi
 uvicorn
-torch>=2.2,<3
+torch
+
+
