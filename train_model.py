@@ -23,7 +23,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from torch import nn
@@ -96,7 +96,19 @@ def load_dataset(path: Path) -> tuple[pd.DataFrame, np.ndarray]:
         features[name] = features[name].map(normalize_category)
         features[name] = features[name].replace("", pd.NA)
 
-    target = labels.map(label_map).to_numpy(dtype=np.int64)
+    dataset = features.copy()
+    dataset[TARGET_COLUMN] = labels.map(label_map).to_numpy(dtype=np.int64)
+    original_rows = len(dataset)
+    dataset = dataset.drop_duplicates().reset_index(drop=True)
+    duplicate_rows = original_rows - len(dataset)
+    if duplicate_rows:
+        print(
+            f"Removed {duplicate_rows} duplicate feature/label rows "
+            "before splitting."
+        )
+
+    target = dataset.pop(TARGET_COLUMN).to_numpy(dtype=np.int64)
+    features = dataset
     if np.unique(target).size != 2:
         raise ValueError("Training requires examples from both target classes.")
     return features, target
@@ -181,6 +193,43 @@ def calculate_metrics(
         "roc_auc": float(roc_auc_score(y_true, probabilities)),
         "average_precision": float(average_precision_score(y_true, probabilities)),
     }
+
+
+def split_indices(
+    features: pd.DataFrame,
+    target: np.ndarray,
+    random_state: int = RANDOM_SEED,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    groups = pd.util.hash_pandas_object(
+        features,
+        index=False,
+    ).to_numpy()
+
+    outer_splitter = StratifiedGroupKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=random_state,
+    )
+    train_val_indices, test_indices = next(
+        outer_splitter.split(features, target, groups)
+    )
+
+    validation_splitter = StratifiedGroupKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=random_state + 1,
+    )
+    train_relative, validation_relative = next(
+        validation_splitter.split(
+            features.iloc[train_val_indices],
+            target[train_val_indices],
+            groups[train_val_indices],
+        )
+    )
+    train_indices = train_val_indices[train_relative]
+    validation_indices = train_val_indices[validation_relative]
+
+    return train_indices, validation_indices, test_indices
 
 
 def train_transformer(
@@ -274,20 +323,16 @@ def predict_probabilities(
 def main() -> None:
     set_seed(RANDOM_SEED)
     features, target = load_dataset(DATASET_PATH)
-    x_train_val, x_test, y_train_val, y_test = train_test_split(
+    train_indices, validation_indices, test_indices = split_indices(
         features,
         target,
-        test_size=0.20,
-        random_state=RANDOM_SEED,
-        stratify=target,
     )
-    x_train, x_val, y_train, y_val = train_test_split(
-        x_train_val,
-        y_train_val,
-        test_size=0.20,
-        random_state=RANDOM_SEED,
-        stratify=y_train_val,
-    )
+    x_train = features.iloc[train_indices]
+    x_val = features.iloc[validation_indices]
+    x_test = features.iloc[test_indices]
+    y_train = target[train_indices]
+    y_val = target[validation_indices]
+    y_test = target[test_indices]
 
     preprocessor = make_preprocessor()
     x_train_encoded = as_dense_float32(preprocessor.fit_transform(x_train))

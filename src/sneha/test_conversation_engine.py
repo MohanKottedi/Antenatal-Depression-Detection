@@ -10,7 +10,13 @@ def main():
     print("\nSneha:", result["assistant_message"])
     print("Pending feature:", result["pending_feature"])
 
-    while not engine.manager.completed:
+    while (
+        not engine.manager.completed
+        and (
+            not engine.screening_stopped
+            or engine.safety_check_pending
+        )
+    ):
         patient_message = input("\nPatient: ").strip()
 
         if patient_message.lower() in {"quit", "exit"}:
@@ -25,6 +31,8 @@ def main():
             print("Stage:", result.get("stage"))
             print("Pending feature:", result.get("pending_feature"))
             print("Sneha:", result.get("assistant_message"))
+            if result.get("screening_result") is not None:
+                print("Screening result:", result["screening_result"])
 
         except (RuntimeError, ValueError) as exc:
             print("Interview error:", exc)
@@ -33,4 +41,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

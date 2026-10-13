@@ -1,18 +1,35 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from _thread import LockType
+from dataclasses import dataclass
+from pathlib import Path
+from threading import Lock
+from time import monotonic
+from typing import Any
+from uuid import uuid4
+
 import joblib
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from typing import Any
 import torch
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from pydantic import ValidationError
 
 from model import FTTransformer, NUMERIC_FEATURE_NAMES, RAW_FEATURE_NAMES
+from src.sneha.conversation_engine import ConversationEngine
 
 app = FastAPI(title="Antenatal Depression Screening API")
 
 base_dir = Path(__file__).resolve().parent
+frontend_dir = base_dir / "frontend"
+app.mount(
+    "/static",
+    StaticFiles(directory=frontend_dir),
+    name="static",
+)
+
 ft_model_path = base_dir / "models" / "ft_transformer_antenatal_model.pkl"
 legacy_model_path = base_dir / "models" / "screening_pipeline.pkl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,6 +38,121 @@ ft_checkpoint = None
 pipeline = None
 model_kind = "unavailable"
 model_load_error = None
+
+
+@dataclass
+class ConversationSession:
+    engine: ConversationEngine
+    lock: LockType
+    last_activity: float
+
+
+class ConversationMessage(BaseModel):
+    session_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    message: str = Field(max_length=4000)
+
+
+conversation_sessions: dict[str, ConversationSession] = {}
+conversation_sessions_lock = Lock()
+SESSION_IDLE_TIMEOUT_SECONDS = 1800
+
+
+def _conversation_response(session_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "session_id": session_id,
+        "assistant_message": result.get("assistant_message"),
+        "progress": result.get("progress"),
+        "stage": result.get("stage"),
+        "completed": result.get("completed", False),
+        "screening_stopped": result.get("screening_stopped", False),
+        "safety_follow_up": result.get("safety_follow_up", False),
+        "screening_result": result.get("screening_result"),
+        "answer_options": result.get("answer_options"),
+        "answer_hint": result.get("answer_hint"),
+    }
+
+
+def _get_conversation_session(session_id: str) -> ConversationSession:
+    _expire_conversation_sessions()
+    with conversation_sessions_lock:
+        session = conversation_sessions.get(session_id)
+        if session is not None:
+            session.last_activity = monotonic()
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation session was not found or has ended.",
+        )
+
+    return session
+
+
+def _expire_conversation_sessions() -> None:
+    expired_before = monotonic() - SESSION_IDLE_TIMEOUT_SECONDS
+    with conversation_sessions_lock:
+        expired_ids = [
+            session_id
+            for session_id, session in conversation_sessions.items()
+            if session.last_activity < expired_before
+        ]
+        for session_id in expired_ids:
+            conversation_sessions.pop(session_id)
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    return FileResponse(frontend_dir / "index.html")
+
+
+@app.post("/api/conversation/start")
+def start_conversation():
+    _expire_conversation_sessions()
+    session_id = uuid4().hex
+    session = ConversationSession(
+        engine=ConversationEngine(),
+        lock=Lock(),
+        last_activity=monotonic(),
+    )
+
+    try:
+        result = session.engine.start()
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not start the conversation: {exc}",
+        ) from exc
+
+    with conversation_sessions_lock:
+        conversation_sessions[session_id] = session
+
+    return _conversation_response(session_id, result)
+
+
+@app.post("/api/conversation/respond")
+def respond_to_conversation(request: ConversationMessage):
+    session = _get_conversation_session(request.session_id)
+
+    try:
+        with session.lock:
+            result = session.engine.respond(request.message)
+            session.last_activity = monotonic()
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not process the response: {exc}",
+        ) from exc
+
+    response = _conversation_response(request.session_id, result)
+    if result.get("completed") or (
+        result.get("screening_stopped")
+        and not result.get("safety_follow_up")
+    ):
+        with conversation_sessions_lock:
+            conversation_sessions.pop(request.session_id, None)
+
+    return response
+
 
 try:
     if ft_model_path.is_file():
@@ -131,4 +263,4 @@ def predict(features: dict[str, Any]):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

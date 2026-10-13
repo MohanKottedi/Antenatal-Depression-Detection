@@ -10,7 +10,7 @@ from .feature_schema import (
     SYMPTOM_FEATURES,
 )
 
-from .feature_extractor import validate_extraction
+from .feature_extractor import validate_extraction, validate_update
 
 # ============================================================
 # CONVERSATION STAGES
@@ -126,28 +126,9 @@ class ConversationManager:
 
         accepted = []
 
-        child_features = {
-            "Number of sons",
-            "Number of daughters",
-            "Total Number of Children",
-        }
-
         for item in validated["updates"]:
             feature = item["feature"]
             value = item["value"]
-
-            # Check consistency whenever all three counts are known.
-            candidate = dict(self.features)
-            candidate[feature] = value
-
-            if child_features.issubset(candidate):
-                sons = candidate["Number of sons"]
-                daughters = candidate["Number of daughters"]
-                total = candidate["Total Number of Children"]
-
-                if sons + daughters != total:
-                    if feature in child_features:
-                        continue
 
             existing = self.feature_metadata.get(feature, {})
             confidence = item["confidence"]
@@ -179,6 +160,10 @@ class ConversationManager:
             feature
             for feature in FEATURE_SCHEMA
             if feature not in self.features
+            or not validate_update({
+                "feature": feature,
+                "value": self.features[feature],
+            })
         ]
 
     # ========================================================
@@ -209,7 +194,7 @@ class ConversationManager:
 
         total = len(FEATURE_SCHEMA)
 
-        collected = len(self.features)
+        collected = total - len(self.get_missing_features())
 
         return {
             "collected": collected,
@@ -226,6 +211,7 @@ class ConversationManager:
     # ========================================================
 
     def determine_stage(self):
+        self.completed = False
 
         missing = set(
             self.get_missing_features()
@@ -240,7 +226,9 @@ class ConversationManager:
             "or of hurting yourself"
         )
 
-    
+        if missing == {suicidal_feature}:
+            self.stage = "safety"
+            return self.stage
 
         # ----------------------------------------------------
         # Background
@@ -406,16 +394,20 @@ class ConversationManager:
         self,
         patient_message: str,
         extraction: Dict[str, Any],
+        evidence_message: Optional[str] = None,
     ):
         self.add_message("user", patient_message)
 
         # Only accept answers for the feature currently being asked.
         if self.pending_feature is not None:
-            extraction = dict(extraction)
+            extraction = dict(extraction) if isinstance(extraction, dict) else {}
+            raw_updates = extraction.get("updates", [])
+            if not isinstance(raw_updates, list):
+                raw_updates = []
 
             extraction["updates"] = [
                 item
-                for item in extraction.get("updates", [])
+                for item in raw_updates
                 if isinstance(item, dict)
                 and item.get("feature") == self.pending_feature
             ]
@@ -423,18 +415,26 @@ class ConversationManager:
         # Validate and store the accepted updates.
         validated = self.update_features(
             extraction,
-            patient_message=patient_message,
+            patient_message=(
+                patient_message
+                if evidence_message is None
+                else evidence_message
+            ),
         )
 
-        # Clear the pending feature once it has a validated answer.
-        if (
-            self.pending_feature is not None
-            and self.pending_feature in self.features
-        ):
+        # Stay on the current feature unless its answer was accepted now.
+        accepted_pending = any(
+            item["feature"] == self.pending_feature
+            for item in validated["updates"]
+        )
+        if self.pending_feature is not None and accepted_pending:
             self.clear_pending_feature()
 
         self.determine_stage()
-        next_question = self.prepare_next_question()
+        if accepted_pending or self.pending_feature is None:
+            next_question = self.prepare_next_question()
+        else:
+            next_question = self.pending_question
         next_feature = self.pending_feature
 
         return {

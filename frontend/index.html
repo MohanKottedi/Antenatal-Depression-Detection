@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7f3">
+    <title>Sneha Antenatal Screening</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261013-options">
+    <script src="/static/app.js?v=20261013-options" defer></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <div>
+          <p class="eyebrow">Antenatal wellbeing</p>
+          <h1>Sneha</h1>
+        </div>
+      </header>
+
+      <section class="intro-card" aria-labelledby="intro-title">
+        <p class="eyebrow">A supportive conversation</p>
+        <h2 id="intro-title">How have you been feeling?</h2>
+        <p>
+          Sneha asks one required question at a time about your pregnancy
+          and wellbeing. You can take your time with each answer.
+        </p>
+        <p class="disclaimer">
+          This is a screening, not a diagnosis. Your answers are held in
+          server memory for this conversation and are not saved to a database.
+        </p>
+        <button id="start-button" class="primary-button" type="button">
+          Start conversation
+        </button>
+      </section>
+
+      <section id="conversation-panel" class="conversation-card" hidden>
+        <div class="progress-header">
+          <div>
+            <p class="eyebrow">Interview progress</p>
+            <p id="progress-label" class="progress-label">0 of 25 questions</p>
+          </div>
+          <p id="stage-label" class="stage-label">Getting started</p>
+        </div>
+        <progress id="progress-bar" max="100" value="0">0%</progress>
+
+        <div
+          id="messages"
+          class="messages"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label="Conversation with Sneha"
+        ></div>
+
+        <form id="reply-form" class="reply-form">
+          <label class="sr-only" for="reply-input">Your answer</label>
+          <textarea
+            id="reply-input"
+            name="message"
+            rows="2"
+            maxlength="4000"
+            placeholder="Type your answer..."
+            required
+          ></textarea>
+          <button id="send-button" class="primary-button" type="submit">
+            Send
+          </button>
+        </form>
+        <p id="status-message" class="status-message" role="status"></p>
+        <section
+          id="screening-result"
+          class="result-card"
+          aria-live="polite"
+          hidden
+        ></section>
+      </section>
+    </main>
+  </body>
+</html>
