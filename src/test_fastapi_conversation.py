@@ -1,11 +1,14 @@
 """Direct endpoint tests for the FastAPI conversation integration."""
 
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import app as api
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 
 
 class StubConversationEngine:
@@ -76,6 +79,29 @@ class FastAPIConversationTests(unittest.TestCase):
         self.assertEqual(result["progress"]["collected"], 1)
         self.assertEqual(result["answer_options"], ["Yes", "No"])
         self.assertEqual(engine.responses, 1)
+
+    def test_response_converts_numpy_prediction_metadata_for_json(self):
+        response = api._conversation_response(
+            "a" * 32,
+            {
+                "screening_result": {
+                    "metadata": {
+                        np.int64(1): np.int64(2),
+                    },
+                    "probability": np.float64(0.75),
+                },
+            },
+        )
+
+        encoded = json.loads(json.dumps(jsonable_encoder(response)))
+        self.assertEqual(
+            encoded["screening_result"]["metadata"]["1"],
+            2,
+        )
+        self.assertEqual(
+            encoded["screening_result"]["probability"],
+            0.75,
+        )
 
     def test_unknown_session_returns_not_found(self):
         request = api.ConversationMessage(

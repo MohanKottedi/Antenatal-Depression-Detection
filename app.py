@@ -57,8 +57,23 @@ conversation_sessions_lock = Lock()
 SESSION_IDLE_TIMEOUT_SECONDS = 1800
 
 
+def _to_json_compatible(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, dict):
+        return {
+            _to_json_compatible(key): _to_json_compatible(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_to_json_compatible(item) for item in value]
+    return value
+
+
 def _conversation_response(session_id: str, result: dict[str, Any]) -> dict[str, Any]:
-    return {
+    return _to_json_compatible({
         "session_id": session_id,
         "assistant_message": result.get("assistant_message"),
         "progress": result.get("progress"),
@@ -69,7 +84,7 @@ def _conversation_response(session_id: str, result: dict[str, Any]) -> dict[str,
         "screening_result": result.get("screening_result"),
         "answer_options": result.get("answer_options"),
         "answer_hint": result.get("answer_hint"),
-    }
+    })
 
 
 def _get_conversation_session(session_id: str) -> ConversationSession:
