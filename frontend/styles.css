@@ -18,7 +18,9 @@ body {
 }
 
 button,
-textarea {
+textarea,
+input,
+select {
   font: inherit;
 }
 
@@ -116,19 +118,100 @@ h2 {
   background: #1f5948;
 }
 
+.secondary-button {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid #9bb9a7;
+  border-radius: 12px;
+  background: #fff;
+  color: #20352f;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.secondary-button:hover {
+  border-color: #286c58;
+  background: #f1f7f3;
+}
+
 .primary-button:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.secondary-button:focus-visible {
   outline: 3px solid #9bc7b4;
   outline-offset: 2px;
 }
 
-.primary-button:disabled {
+.primary-button:disabled,
+.secondary-button:disabled {
   cursor: wait;
   opacity: 0.65;
 }
 
+.mode-buttons,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .conversation-card {
   padding: 20px;
+}
+
+.form-intro {
+  color: #50625d;
+  line-height: 1.65;
+}
+
+.form-fields {
+  display: grid;
+  gap: 22px;
+}
+
+.form-section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid #e0e8e2;
+  border-radius: 14px;
+}
+
+.form-section legend {
+  padding: 0 7px;
+  color: #2e705d;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+}
+
+.form-field label {
+  color: #344a41;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #cbd8ce;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+}
+
+.form-actions {
+  margin-top: 22px;
 }
 
 .progress-header {
@@ -148,6 +231,110 @@ textarea:focus-visible {
   color: #547268;
   font-size: 14px;
   text-transform: capitalize;
+}
+
+.sneha-companion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  margin: 0 0 10px;
+  padding: 8px 14px 8px 8px;
+  border: 1px solid #e0e8e2;
+  border-radius: 999px;
+  background: #fbfdfb;
+}
+
+.sneha-avatar {
+  display: block;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  transform-origin: center bottom;
+}
+
+.companion-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.companion-copy strong {
+  color: #294b40;
+  font-size: 15px;
+}
+
+.companion-copy span {
+  color: #547268;
+  font-size: 13px;
+}
+
+.voice-toggle {
+  min-height: 36px;
+  margin-left: 4px;
+  padding: 0 11px;
+  border: 1px solid #9bb9a7;
+  border-radius: 999px;
+  background: #fff;
+  color: #286c58;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.voice-toggle:hover:not(:disabled) {
+  border-color: #286c58;
+  background: #f1f7f3;
+}
+
+.voice-toggle:focus-visible {
+  outline: 3px solid #9bc7b4;
+  outline-offset: 2px;
+}
+
+.voice-toggle:disabled {
+  color: #65776e;
+  cursor: not-allowed;
+}
+
+.avatar-mouth-speaking {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.sneha-companion.is-thinking .sneha-avatar {
+  animation: companion-think 1.6s ease-in-out infinite;
+}
+
+.sneha-companion.is-speaking .sneha-avatar {
+  animation: companion-speak 0.5s ease-in-out infinite alternate;
+}
+
+.sneha-companion.is-speaking .avatar-mouth-smile {
+  opacity: 0;
+}
+
+.sneha-companion.is-speaking .avatar-mouth-speaking {
+  opacity: 1;
+  animation: avatar-mouth 0.24s ease-in-out infinite alternate;
+}
+
+@keyframes companion-think {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes companion-speak {
+  to {
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+
+@keyframes avatar-mouth {
+  to {
+    transform: scaleY(0.4);
+  }
 }
 
 progress {
@@ -282,6 +469,17 @@ textarea {
   display: none !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 520px) {
   .page-shell {
     width: min(100% - 20px, 760px);
@@ -299,5 +497,24 @@ textarea {
 
   .reply-form .primary-button {
     align-self: end;
+  }
+
+  .form-section {
+    padding: 14px;
+  }
+
+  .sneha-companion {
+    gap: 8px;
+    padding-right: 9px;
+  }
+
+  .sneha-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  .voice-toggle {
+    padding: 0 9px;
+    font-size: 12px;
   }
 }

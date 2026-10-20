@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7f3">
     <title>Sneha Antenatal Screening</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261013-options">
-    <script src="/static/app.js?v=20261013-options" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=20261013-voice">
+    <script src="/static/app.js?v=20261013-azure-neural" defer></script>
   </head>
   <body>
     <main class="page-shell">
@@ -26,12 +26,54 @@
           and wellbeing. You can take your time with each answer.
         </p>
         <p class="disclaimer">
-          This is a screening, not a diagnosis. Your answers are held in
-          server memory for this conversation and are not saved to a database.
+          This is a screening, not a diagnosis. Conversation answers are held
+          in server memory for this session and are not saved to a database.
         </p>
-        <button id="start-button" class="primary-button" type="button">
-          Start conversation
-        </button>
+        <div class="mode-buttons">
+          <button id="start-button" class="primary-button" type="button">
+            Start conversation
+          </button>
+          <button id="start-form-button" class="secondary-button" type="button">
+            Fill in a form
+          </button>
+        </div>
+      </section>
+
+      <section id="form-panel" class="conversation-card" hidden>
+        <div>
+          <p class="eyebrow">Antenatal wellbeing questionnaire</p>
+          <h2>Tell us how things have been</h2>
+          <p class="form-intro">
+            Answer each question as best you can. For the symptom questions,
+            think about how often you have experienced each one recently.
+          </p>
+          <p class="disclaimer">
+            This is a screening estimate, not a diagnosis. Your answers are
+            sent to the server to calculate a result and are not saved to a
+            database. If you indicate thoughts of self-harm, the screening
+            stops so we can focus on your immediate safety.
+          </p>
+        </div>
+        <form id="screening-form">
+          <div id="form-fields" class="form-fields">
+            <p id="form-loading" role="status">Loading questions...</p>
+          </div>
+          <div class="form-actions">
+            <button id="form-submit-button" class="primary-button" type="submit">
+              Get screening estimate
+            </button>
+            <button id="back-to-intro-button" class="secondary-button" type="button">
+              Back
+            </button>
+          </div>
+        </form>
+        <p id="form-status-message" class="status-message" role="status"></p>
+        <section
+          id="form-result"
+          class="result-card"
+          aria-live="polite"
+          hidden
+        ></section>
       </section>
 
       <section id="conversation-panel" class="conversation-card" hidden>
@@ -43,6 +85,45 @@
           <p id="stage-label" class="stage-label">Getting started</p>
         </div>
         <progress id="progress-bar" max="100" value="0">0%</progress>
+
+        <div class="sneha-companion" aria-label="Sneha, your supportive screening companion">
+          <svg
+            class="sneha-avatar"
+            viewBox="0 0 120 120"
+            role="img"
+            aria-label="Friendly animated portrait of Sneha"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="60" cy="60" r="58" fill="#e9f4ed" />
+            <path
+              d="M19 111c3-18 19-29 41-29s38 11 41 29"
+              fill="#3d8069"
+            />
+            <path d="M37 52c-8-19 1-39 23-39s31 20 23 39l-2 18H39z" fill="#294b40" />
+            <circle cx="34" cy="53" r="8" fill="#d1e7da" stroke="#3d8069" stroke-width="3" />
+            <circle cx="86" cy="53" r="8" fill="#d1e7da" stroke="#3d8069" stroke-width="3" />
+            <path d="M42 41c0-12 8-20 18-20s18 8 18 20v18c0 16-8 25-18 25s-18-9-18-25z" fill="#f2c9a8" />
+            <path d="M40 46c-1-16 8-26 20-26 13 0 20 10 20 25-6-2-11-7-14-12-5 7-14 11-26 13" fill="#294b40" />
+            <path d="M49 53h1m20 0h1" stroke="#294b40" stroke-linecap="round" stroke-width="4" />
+            <path class="avatar-mouth-smile" d="M52 67c5 5 11 5 16 0" fill="none" stroke="#9c5550" stroke-linecap="round" stroke-width="3" />
+            <ellipse class="avatar-mouth-speaking" cx="60" cy="67" rx="5" ry="7" fill="#824640" />
+            <path d="M57 71c2 1 4 1 6 0" stroke="#ed9b91" stroke-linecap="round" stroke-width="2" />
+            <circle cx="33" cy="53" r="2" fill="#fff" />
+            <circle cx="87" cy="53" r="2" fill="#fff" />
+          </svg>
+          <div class="companion-copy">
+            <strong>Sneha</strong>
+            <span id="bot-caption" aria-live="polite">Here with you</span>
+          </div>
+          <button
+            id="voice-toggle"
+            class="voice-toggle"
+            type="button"
+            aria-pressed="true"
+          >
+            Voice: On
+          </button>
+        </div>
 
         <div
           id="messages"

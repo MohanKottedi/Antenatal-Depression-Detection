@@ -1,10 +1,15 @@
-from _thread import LockType
+import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from time import monotonic
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from uuid import uuid4
+from xml.sax.saxutils import escape
+from _thread import LockType
 
 import joblib
 import numpy as np
@@ -12,13 +17,22 @@ import pandas as pd
 import torch
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic import ValidationError
 
 from model import FTTransformer, NUMERIC_FEATURE_NAMES, RAW_FEATURE_NAMES
 from src.sneha.conversation_engine import ConversationEngine
+from src.sneha.conversation_manager import QUESTION_TEMPLATES
+from src.sneha.feature_extractor import CATEGORY_VALUES, validate_update
+from src.sneha.feature_schema import (
+    CATEGORICAL_FEATURES,
+    FEATURE_SCHEMA,
+    NUMERIC_FEATURES,
+    SYMPTOM_FEATURES,
+    SYMPTOM_SCALE,
+)
 
 app = FastAPI(title="Antenatal Depression Screening API")
 
@@ -50,6 +64,14 @@ class ConversationSession:
 class ConversationMessage(BaseModel):
     session_id: str = Field(pattern=r"^[0-9a-f]{32}$")
     message: str = Field(max_length=4000)
+
+
+class ScreeningFormSubmission(BaseModel):
+    answers: dict[str, Any]
+
+
+class VoiceSynthesisRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
 
 
 conversation_sessions: dict[str, ConversationSession] = {}
@@ -118,6 +140,199 @@ def _expire_conversation_sessions() -> None:
 @app.get("/", include_in_schema=False)
 def frontend():
     return FileResponse(frontend_dir / "index.html")
+
+
+@app.post("/api/voice/synthesize")
+def synthesize_voice(request: VoiceSynthesisRequest):
+    speech_key = os.environ.get("AZURE_SPEECH_KEY")
+    speech_region = os.environ.get("AZURE_SPEECH_REGION")
+    if not speech_key or not speech_region:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Azure Speech is not configured. Set AZURE_SPEECH_KEY and "
+                "AZURE_SPEECH_REGION on the server."
+            ),
+        )
+    if not re.fullmatch(r"[a-z0-9-]+", speech_region, flags=re.IGNORECASE):
+        raise HTTPException(
+            status_code=500,
+            detail="AZURE_SPEECH_REGION has an invalid format.",
+        )
+
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Text cannot be empty.")
+
+    ssml = (
+        '<speak version="1.0" xml:lang="en-IN">'
+        '<voice name="en-IN-NeerjaNeural">'
+        f"{escape(text)}"
+        "</voice></speak>"
+    )
+    azure_request = Request(
+        f"https://{speech_region}.tts.speech.microsoft.com/cognitiveservices/v1",
+        data=ssml.encode("utf-8"),
+        headers={
+            "Content-Type": "application/ssml+xml",
+            "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+            "Ocp-Apim-Subscription-Key": speech_key,
+            "User-Agent": "SnehaAntenatalScreening",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(azure_request, timeout=20) as response:
+            audio = response.read()
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Azure Speech returned HTTP {exc.code}. Check the server's speech resource configuration.",
+        ) from exc
+    except (URLError, TimeoutError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not connect to Azure Speech. Check the server's network connection.",
+        ) from exc
+
+    if not audio:
+        raise HTTPException(
+            status_code=502,
+            detail="Azure Speech returned an empty audio response.",
+        )
+
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/form/schema")
+def screening_form_schema():
+    fields = []
+    for feature, schema in FEATURE_SCHEMA.items():
+        field = {
+            "name": feature,
+            "label": QUESTION_TEMPLATES[feature],
+            "group": schema["group"],
+            "type": schema["type"],
+        }
+        if feature in CATEGORICAL_FEATURES:
+            field["options"] = [
+                option
+                for option in CATEGORY_VALUES[feature]
+                if option != "__MISSING__"
+            ]
+        elif feature in SYMPTOM_FEATURES:
+            field["options"] = [
+                {"value": value, "label": label}
+                for value, label in SYMPTOM_SCALE.items()
+            ]
+        elif feature in NUMERIC_FEATURES:
+            if feature == "Age":
+                field.update({"min": 10, "max": 60, "step": 1})
+            elif feature == "Gestational Age":
+                field.update({"min": 0, "max": 45, "step": "any"})
+            else:
+                field.update({"min": 0, "step": 1})
+        fields.append(field)
+
+    return {"fields": fields}
+
+
+@app.post("/api/form/predict")
+def predict_from_form(request: ScreeningFormSubmission):
+    answers = request.answers
+    missing = [feature for feature in FEATURE_SCHEMA if feature not in answers]
+    unexpected = [feature for feature in answers if feature not in FEATURE_SCHEMA]
+    if missing or unexpected:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "missing_features": missing,
+                "unexpected_features": unexpected,
+            },
+        )
+
+    validated_answers = {}
+    invalid_features = []
+    for feature in FEATURE_SCHEMA:
+        value = answers[feature]
+        if not validate_update({"feature": feature, "value": value}):
+            invalid_features.append(feature)
+            continue
+        if feature in NUMERIC_FEATURES or feature in SYMPTOM_FEATURES:
+            validated_answers[feature] = float(value)
+        else:
+            validated_answers[feature] = value
+
+    if invalid_features:
+        raise HTTPException(
+            status_code=422,
+            detail={"invalid_features": invalid_features},
+        )
+
+    self_harm_feature = SYMPTOM_FEATURES[-1]
+    if validated_answers[self_harm_feature] > 0:
+        return {
+            "screening_result": {
+                "status": "safety_interrupted",
+                "message": (
+                    "Thank you for sharing that. Are you in danger right now, or "
+                    "do you feel you might act on these thoughts? If you may act "
+                    "on them or cannot stay safe, contact local emergency services "
+                    "now and reach out to someone trusted who can stay with you. "
+                    "This screening has stopped and will not produce a model result."
+                ),
+            }
+        }
+
+    progress = {
+        "collected": len(FEATURE_SCHEMA),
+        "total": len(FEATURE_SCHEMA),
+        "remaining": 0,
+        "percentage": 100.0,
+    }
+    try:
+        from src.predict_transformer import (
+            get_model_info,
+            predict_antenatal_depression,
+        )
+
+        prediction = predict_antenatal_depression(validated_answers)
+        positive_probability = float(prediction["probability"])
+        screening_result = {
+            "status": "success",
+            "model_info": get_model_info(),
+            "prediction": prediction,
+            "class_probabilities": {
+                "Not Depressed": 1.0 - positive_probability,
+                "Depressed": positive_probability,
+            },
+            "progress": progress,
+            "completed": True,
+        }
+    except (FileNotFoundError, ImportError, OSError) as exc:
+        screening_result = {
+            "status": "unavailable",
+            "message": str(exc),
+            "prediction": None,
+            "class_probabilities": None,
+            "progress": progress,
+            "completed": True,
+        }
+    except (ValueError, KeyError, TypeError, RuntimeError) as exc:
+        screening_result = {
+            "status": "invalid_features",
+            "message": str(exc),
+            "prediction": None,
+            "class_probabilities": None,
+            "progress": progress,
+            "completed": True,
+        }
+
+    return {"screening_result": _to_json_compatible(screening_result)}
 
 
 @app.post("/api/conversation/start")
