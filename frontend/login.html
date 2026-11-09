@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sneha Login</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-panel">
+        <div class="auth-brand">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">Antenatal wellbeing</p>
+            <h1>Sneha</h1>
+          </div>
+        </div>
+
+        <h2>Welcome back</h2>
+        <p class="auth-subtitle">Access your account, screening history, and care dashboard.</p>
+
+        <form id="login-form" class="auth-form">
+          <label class="auth-field">
+            <span>Email address</span>
+            <input id="login-email" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label class="auth-field">
+            <span>Password</span>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <div class="auth-actions">
+            <button type="submit" class="primary-button">Log in</button>
+            <a href="/auth/register" class="secondary-link">Create account</a>
+          </div>
+        </form>
+
+        <p id="login-message" class="status-banner" role="status"></p>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById('login-form');
+      const message = document.getElementById('login-message');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        message.textContent = 'Signing in...';
+        message.classList.remove('error');
+
+        const payload = {
+          email: document.getElementById('login-email').value.trim(),
+          password: document.getElementById('login-password').value,
+        };
+
+        try {
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'Login failed.');
+          }
+          window.location.href = data.user.role === 'admin' ? '/admin' : '/patient';
+        } catch (error) {
+          message.textContent = error.message;
+          message.classList.add('error');
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -122,3 +122,15 @@ python -m uvicorn app:app --reload
 
 The chat page is served at `http://127.0.0.1:8000/`. Conversation sessions are
 kept in memory and expire after 30 minutes of inactivity.
+
+Patient flow:
+
+- Register or log in as a patient.
+- After authentication, the app redirects the patient to their account portal so
+  screening and saved history remain tied to that user record.
+- Every screening result is saved with the response details and a clinician-
+  friendly depression prediction summary.
+- Admin users can review all patient answers and saved outcomes from the admin
+  dashboard, including the charted depression distribution and recent activity.
+- The admin dashboard includes a clear-data action to remove saved screening
+  data when a fresh review cycle is needed.

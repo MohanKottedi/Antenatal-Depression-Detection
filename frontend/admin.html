@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sneha Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body class="dashboard-body">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <p class="eyebrow">Clinical analytics</p>
+          <h3>Sneha</h3>
+        </div>
+      </div>
+      <nav class="nav-stack">
+        <a class="nav-link active" href="/admin">Overview</a>
+        <a class="nav-link" href="/patient">Patient portal</a>
+        <a class="nav-link" href="/">Screening</a>
+      </nav>
+      <button id="logout-button" class="secondary-button" type="button">Logout</button>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h2>Admin overview</h2>
+        </div>
+        <div class="dashboard-meta">
+          <span id="current-date"></span>
+          <span id="admin-name">Admin</span>
+        </div>
+      </header>
+
+      <section id="metrics-grid" class="metrics-grid"></section>
+      <section class="panel-grid">
+        <article class="panel-card chart-card">
+          <div class="panel-header">
+            <h3>Screening activity</h3>
+          </div>
+          <div id="activity-chart" class="chart-placeholder">Loading data…</div>
+        </article>
+        <article class="panel-card chart-card">
+          <div class="panel-header">
+            <h3>Outcome distribution</h3>
+          </div>
+          <div id="outcome-chart" class="chart-placeholder">Loading data…</div>
+        </article>
+      </section>
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Patient screening list</h3>
+          <button id="clear-saved-data" class="secondary-button danger-button" type="button">Clear saved screening data</button>
+        </div>
+        <div id="patient-list" class="table-list"></div>
+      </section>
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Patient answers and results</h3>
+        </div>
+        <div id="patient-detail" class="detail-panel empty-state">Select a patient to review saved answers and depression summaries.</div>
+      </section>
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Recent activity</h3>
+        </div>
+        <div id="activity-table" class="table-list"></div>
+      </section>
+    </main>
+
+    <script>
+      async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          ...(options || {}),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Request failed.');
+        }
+        return data;
+      }
+
+      function renderMetrics(metrics) {
+        const items = [
+          { label: 'Registered patients', value: metrics.total_patients || 0 },
+          { label: 'Total sessions', value: metrics.total_sessions || 0 },
+          { label: 'Completed', value: metrics.completed_sessions || 0 },
+          { label: 'Incomplete', value: metrics.incomplete_sessions || 0 },
+          { label: 'Last 7 days', value: metrics.sessions_last_7_days || 0 },
+          { label: 'Avg completion', value: `${metrics.average_completion_rate ?? 0}%` },
+        ];
+
+        const cardHtml = items.map((item) => `
+          <article class="metric-card">
+            <span>${item.label}</span>
+            <strong>${item.value}</strong>
+          </article>
+        `).join('');
+        document.getElementById('metrics-grid').innerHTML = cardHtml;
+      }
+
+      function renderBarChart(el, data, color) {
+        if (!data || data.length === 0) {
+          el.innerHTML = '<p class="empty-state">No activity recorded yet.</p>';
+          return;
+        }
+        const values = data.map((item) => Number(item.value || 0));
+        const maxValue = Math.max(...values, 1);
+        el.innerHTML = data.map((item) => `
+          <div class="chart-row">
+            <span>${item.label}</span>
+            <div class="chart-bar-track"><div class="chart-bar" style="width:${(Number(item.value || 0) / maxValue) * 100}%; background:${color};"></div></div>
+            <strong>${item.value}</strong>
+          </div>
+        `).join('');
+      }
+
+      function renderTable(rows) {
+        if (!rows || rows.length === 0) {
+          document.getElementById('activity-table').innerHTML = '<p class="empty-state">No recent activity.</p>';
+          return;
+        }
+        document.getElementById('activity-table').innerHTML = rows.map((row) => `
+          <div class="table-row">
+            <span>${row.action}</span>
+            <span>${row.resource_type || 'system'}</span>
+            <span>${new Date(row.created_at).toLocaleString()}</span>
+          </div>
+        `).join('');
+      }
+
+      function renderPatients(patients) {
+        const list = document.getElementById('patient-list');
+        if (!patients || patients.length === 0) {
+          list.innerHTML = '<p class="empty-state">No patient accounts have been created yet.</p>';
+          return;
+        }
+        list.innerHTML = patients.map((patient) => `
+          <button class="table-row clickable-row" type="button" data-patient-id="${patient.id}">
+            <span>${patient.full_name}</span>
+            <span>${patient.email}</span>
+            <span>${patient.last_prediction || 'Pending'}</span>
+            <span>${patient.last_screening_date ? new Date(patient.last_screening_date).toLocaleDateString() : 'No screening yet'}</span>
+          </button>
+        `).join('');
+
+        list.querySelectorAll('.clickable-row').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const patientId = button.dataset.patientId;
+            try {
+              const detail = await fetchJson(`/api/admin/patients/${patientId}/history`);
+              const screenings = detail.screenings || [];
+              const patientAnswers = screenings.map((session) => `
+                <div class="detail-session-card">
+                  <div class="detail-header">
+                    <h4>Screening ${session.id}</h4>
+                    <span>${session.screening_status}</span>
+                  </div>
+                  <div class="info-list">
+                    <div class="info-row"><span>Date</span><strong>${new Date(session.screening_date).toLocaleString()}</strong></div>
+                    <div class="info-row"><span>Prediction</span><strong>${session.predicted_class || 'Pending'}</strong></div>
+                    <div class="info-row"><span>Risk</span><strong>${session.risk_score !== null && session.risk_score !== undefined ? Number(session.risk_score).toFixed(3) : 'N/A'}</strong></div>
+                  </div>
+                  <div class="info-box">
+                    <strong>Depression summary</strong>
+                    <p>${session.screening_summary || 'No depression summary saved.'}</p>
+                  </div>
+                  <div class="answer-list">
+                    ${(session.answers || []).map((answer) => `
+                      <div class="info-row"><span>${answer.question_key}</span><strong>${answer.response_value}</strong></div>
+                    `).join('') || '<p class="empty-state">No answered questions were saved for this session.</p>'}
+                  </div>
+                </div>
+              `).join('');
+
+              document.getElementById('patient-detail').innerHTML = `
+                <div class="detail-header">
+                  <h4>${detail.user.full_name}</h4>
+                  <span>${detail.user.email}</span>
+                </div>
+                ${patientAnswers || '<p class="empty-state">This patient has no saved screening history.</p>'}
+              `;
+            } catch (error) {
+              console.error(error);
+              document.getElementById('patient-detail').innerHTML = '<p class="empty-state">Unable to load this patient record.</p>';
+            }
+          });
+        });
+      }
+
+      async function loadDashboard() {
+        try {
+          const data = await fetchJson('/api/admin/dashboard');
+          const patientData = await fetchJson('/api/admin/patients');
+          renderMetrics(data.metrics || {});
+          renderBarChart(document.getElementById('activity-chart'), data.activity || [], '#3a8d7d');
+          renderBarChart(document.getElementById('outcome-chart'), data.outcomes || [], '#9b8ecb');
+          renderPatients(patientData.patients || []);
+          renderTable(data.recent_activity || []);
+          document.getElementById('admin-name').textContent = data.user?.full_name || 'Admin';
+          document.getElementById('current-date').textContent = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
+        } catch (error) {
+          document.getElementById('metrics-grid').innerHTML = '<div class="empty-state">Unable to load dashboard. Please sign in again.</div>';
+          console.error(error);
+          window.location.href = '/auth/login';
+        }
+      }
+
+      document.getElementById('logout-button').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = '/auth/login';
+      });
+
+      document.getElementById('clear-saved-data').addEventListener('click', async () => {
+        const confirmed = window.confirm('This will delete all saved screening sessions, answers, and depression data. Continue?');
+        if (!confirmed) return;
+        try {
+          const result = await fetch('/api/admin/clear-data', {
+            method: 'DELETE',
+            credentials: 'same-origin',
+          });
+          const data = await result.json();
+          if (!result.ok) throw new Error(data.detail || 'Could not clear data');
+          document.getElementById('patient-list').innerHTML = '<p class="empty-state">Saved screening data has been cleared.</p>';
+          document.getElementById('patient-detail').innerHTML = '<p class="empty-state">Patient details are now empty.</p>';
+          await loadDashboard();
+        } catch (error) {
+          console.error(error);
+          window.alert(error.message);
+        }
+      });
+
+      loadDashboard();
+    </script>
+  </body>
+</html>

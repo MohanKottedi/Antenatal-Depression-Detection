@@ -13,16 +13,55 @@ from src.sneha.feature_extractor import CATEGORY_VALUES
 # PATHS AND MODEL LOADING
 # ============================================================
 
+from typing import Any
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = BASE_DIR / "models" / "random_forest_experiment_A.joblib"
 PREPROCESSOR_PATH = BASE_DIR / "models" / "preprocessor_experiment_A.joblib"
+PROCESSED_PATH = BASE_DIR / "models" / "processed_experiment_A.joblib"
 
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(
-        f"Random Forest model package not found: {MODEL_PATH}"
+
+def _train_missing_model() -> dict:
+    """Build the expected Experiment A model package if it is absent."""
+    if MODEL_PATH.exists():
+        return joblib.load(MODEL_PATH)
+
+    if not PROCESSED_PATH.exists():
+        raise FileNotFoundError(
+            "Random Forest model package not found and processed data is missing: "
+            f"{PROCESSED_PATH}"
+        )
+
+    from sklearn.ensemble import RandomForestClassifier
+
+    processed = joblib.load(PROCESSED_PATH)
+    X_train = processed["X_train"]
+    y_train = processed["y_train"]
+
+    model = RandomForestClassifier(
+        n_estimators=500,
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features="sqrt",
+        class_weight="balanced",
+        random_state=42,
+        n_jobs=-1,
     )
+    model.fit(X_train, y_train)
 
-MODEL_PACKAGE = joblib.load(MODEL_PATH)
+    model_package = {
+        "model": model,
+        "model_name": "Random Forest",
+        "experiment": "Experiment A",
+        "feature_names": processed.get("feature_names", []),
+        "random_state": 42,
+    }
+    joblib.dump(model_package, MODEL_PATH)
+    return model_package
+
+
+MODEL_PACKAGE = _train_missing_model()
 
 if not isinstance(MODEL_PACKAGE, dict) or "model" not in MODEL_PACKAGE:
     raise ValueError(
@@ -31,8 +70,6 @@ if not isinstance(MODEL_PACKAGE, dict) or "model" not in MODEL_PACKAGE:
     )
 
 model = MODEL_PACKAGE["model"]
-
-from typing import Any
 
 raw_feature_names: Any = MODEL_PACKAGE.get("feature_names")
 

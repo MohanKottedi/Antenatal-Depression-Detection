@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sneha Registration</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-panel">
+        <div class="auth-brand">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">Create account</p>
+            <h1>Sneha</h1>
+          </div>
+        </div>
+
+        <h2>Join Sneha</h2>
+        <p class="auth-subtitle">Create a secure patient account and begin screening.</p>
+
+        <form id="register-form" class="auth-form">
+          <label class="auth-field">
+            <span>Full name</span>
+            <input name="full_name" type="text" autocomplete="name" required />
+          </label>
+          <label class="auth-field">
+            <span>Email</span>
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label class="auth-field">
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="new-password" required minlength="8" />
+          </label>
+          <label class="auth-field">
+            <span>Confirm password</span>
+            <input name="confirm_password" type="password" autocomplete="new-password" required minlength="8" />
+          </label>
+          <label class="checkbox-row">
+            <input name="consent" type="checkbox" required />
+            <span>I consent to the privacy notice and screening-data processing.</span>
+          </label>
+          <div class="auth-actions">
+            <button type="submit" class="primary-button">Create account</button>
+            <a href="/auth/login" class="secondary-link">Already have an account?</a>
+          </div>
+        </form>
+
+        <p id="register-message" class="status-banner" role="status"></p>
+      </section>
+    </main>
+
+    <script>
+      const registerForm = document.getElementById('register-form');
+      const registerMessage = document.getElementById('register-message');
+
+      registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        registerMessage.textContent = 'Creating your account...';
+        registerMessage.classList.remove('error');
+
+        const formData = new FormData(registerForm);
+        const payload = {
+          full_name: String(formData.get('full_name') || '').trim(),
+          email: String(formData.get('email') || '').trim(),
+          password: String(formData.get('password') || ''),
+          confirm_password: String(formData.get('confirm_password') || ''),
+          consent: Boolean(formData.get('consent')),
+        };
+
+        try {
+          const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'Registration failed.');
+          }
+          registerMessage.textContent = 'Registration successful. Redirecting to login...';
+          setTimeout(() => { window.location.href = '/auth/login'; }, 700);
+        } catch (error) {
+          registerMessage.textContent = error.message;
+          registerMessage.classList.add('error');
+        }
+      });
+    </script>
+  </body>
+</html>

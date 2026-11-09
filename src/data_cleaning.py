@@ -771,9 +771,9 @@ def clean_dataset(df):
 
 # if __name__ == "__main__":
 
-    # cleaned_df = clean_dataset()
+#     cleaned_df = clean_dataset()
 
-    # print("\nCleaning pipeline finished.")
-    # print(
-    #     f"Final shape: {cleaned_df.shape}"
-    # )
+#     print("\nCleaning pipeline finished.")
+#     print(
+#         f"Final shape: {cleaned_df.shape}"
+#     )

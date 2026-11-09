@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sneha Patient Portal</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body class="dashboard-body">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <p class="eyebrow">My portal</p>
+          <h3>Sneha</h3>
+        </div>
+      </div>
+      <nav class="nav-stack">
+        <a class="nav-link active" href="/patient">Overview</a>
+        <a class="nav-link" href="/">Start screening</a>
+      </nav>
+      <button id="logout-button" class="secondary-button" type="button">Logout</button>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div>
+          <p class="eyebrow">Patient dashboard</p>
+          <h2 id="welcome-name">Welcome</h2>
+        </div>
+        <div class="dashboard-meta">
+          <span id="current-date"></span>
+          <a class="primary-button" href="/">Complete new screening</a>
+        </div>
+      </header>
+
+      <section class="panel-card profile-card">
+        <div class="panel-header">
+          <h3>Profile</h3>
+        </div>
+        <div id="profile-summary" class="info-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Recent screenings</h3>
+        </div>
+        <div id="screening-list" class="table-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Saved assessment details</h3>
+        </div>
+        <div id="screening-detail" class="detail-panel empty-state">Select a screening entry to view the saved answers and depression summary.</div>
+      </section>
+    </main>
+
+    <script>
+      async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          ...(options || {}),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Request failed.');
+        }
+        return data;
+      }
+
+      function renderProfile(profile) {
+        const profileData = [
+          ['Name', profile.user?.full_name || 'Not available'],
+          ['Email', profile.user?.email || 'Not available'],
+          ['Reference', profile.patient_reference || 'Pending'],
+          ['Age', profile.age || 'Not set'],
+          ['Gestational age', profile.gestational_age ? `${profile.gestational_age} weeks` : 'Not set'],
+          ['City', profile.city || 'Not set'],
+        ];
+        document.getElementById('profile-summary').innerHTML = profileData.map(([label, value]) => `
+          <div class="info-row"><span>${label}</span><strong>${value}</strong></div>
+        `).join('');
+      }
+
+      function renderScreenings(rows) {
+        const list = document.getElementById('screening-list');
+        if (!rows || rows.length === 0) {
+          list.innerHTML = '<p class="empty-state">No screenings yet. Start your first assessment from the home page.</p>';
+          document.getElementById('screening-detail').innerHTML = '<p class="empty-state">Select a screening entry to view the saved answers and depression summary.</p>';
+          return;
+        }
+
+        list.innerHTML = rows.map((row) => `
+          <button class="table-row clickable-row" type="button" data-session-id="${row.id}">
+            <span>${new Date(row.screening_date).toLocaleDateString()}</span>
+            <span>${row.screening_status}</span>
+            <span>${row.predicted_class || 'Pending'}</span>
+            <span>${(row.completion_percentage || 0)}%</span>
+          </button>
+        `).join('');
+
+        list.querySelectorAll('.clickable-row').forEach((button) => {
+          button.addEventListener('click', () => {
+            const session = rows.find((item) => item.id === Number(button.dataset.sessionId));
+            if (!session) return;
+            const answerHtml = (session.answers || []).map((answer) => `
+              <div class="info-row"><span>${answer.question_key}</span><strong>${answer.response_value}</strong></div>
+            `).join('') || '<p class="empty-state">No individual answers were saved for this screening.</p>';
+            const summary = session.screening_summary || 'No depression summary was saved for this screening.';
+            document.getElementById('screening-detail').innerHTML = `
+              <div class="detail-header">
+                <h4>Screening ${session.id}</h4>
+                <span>${session.predicted_class || 'Pending'} • ${session.risk_score !== null && session.risk_score !== undefined ? Number(session.risk_score).toFixed(3) : 'No risk score'}</span>
+              </div>
+              <div class="info-box">
+                <strong>Depression prediction summary</strong>
+                <p>${summary}</p>
+              </div>
+              <div class="answer-list">${answerHtml}</div>
+            `;
+          });
+        });
+      }
+
+      async function loadPatientPortal() {
+        try {
+          const data = await fetchJson('/api/patient/dashboard');
+          document.getElementById('welcome-name').textContent = `Welcome, ${data.user?.full_name || 'Patient'}`;
+          document.getElementById('current-date').textContent = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
+          renderProfile(data.profile || {});
+          renderScreenings(data.screenings || []);
+        } catch (error) {
+          console.error(error);
+          window.location.href = '/auth/login';
+        }
+      }
+
+      document.getElementById('logout-button').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = '/auth/login';
+      });
+
+      loadPatientPortal();
+    </script>
+  </body>
+</html>

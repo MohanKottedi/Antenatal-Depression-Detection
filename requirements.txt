@@ -5,5 +5,12 @@ numpy
 fastapi
 uvicorn
 torch
+sqlalchemy
+pymysql
+pydantic[email]
+python-dotenv
+bcrypt
+pyjwt
+alembic
 
 
