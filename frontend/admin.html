@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sneha Admin Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css" />
-    <script src="/static/app.js" defer></script>
   </head>
   <body class="dashboard-body">
     <aside class="sidebar">
@@ -53,8 +52,14 @@
       </section>
       <section class="panel-card">
         <div class="panel-header">
+          <h3>Doctor verification</h3>
+        </div>
+        <div id="doctor-verification-list" class="table-list"></div>
+      </section>
+      <section class="panel-card">
+        <div class="panel-header">
           <h3>Patient screening list</h3>
-          <button id="clear-saved-data" class="secondary-button danger-button" type="button">Clear saved screening data</button>
+          <button id="clear-saved-data" class="secondary-button danger-button" type="button">Clear saved screening and review data</button>
         </div>
         <div id="patient-list" class="table-list"></div>
       </section>
@@ -85,6 +90,16 @@
         return data;
       }
 
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[character]);
+      }
+
       function renderMetrics(metrics) {
         const items = [
           { label: 'Registered patients', value: metrics.total_patients || 0 },
@@ -113,7 +128,7 @@
         const maxValue = Math.max(...values, 1);
         el.innerHTML = data.map((item) => `
           <div class="chart-row">
-            <span>${item.label}</span>
+            <span>${escapeHtml(item.label)}</span>
             <div class="chart-bar-track"><div class="chart-bar" style="width:${(Number(item.value || 0) / maxValue) * 100}%; background:${color};"></div></div>
             <strong>${item.value}</strong>
           </div>
@@ -127,8 +142,8 @@
         }
         document.getElementById('activity-table').innerHTML = rows.map((row) => `
           <div class="table-row">
-            <span>${row.action}</span>
-            <span>${row.resource_type || 'system'}</span>
+            <span>${escapeHtml(row.action)}</span>
+            <span>${escapeHtml(row.resource_type || 'system')}</span>
             <span>${new Date(row.created_at).toLocaleString()}</span>
           </div>
         `).join('');
@@ -142,10 +157,10 @@
         }
         list.innerHTML = patients.map((patient) => `
           <button class="table-row clickable-row" type="button" data-patient-id="${patient.id}">
-            <span>${patient.full_name}</span>
-            <span>${patient.email}</span>
-            <span>${patient.last_prediction || 'Pending'}</span>
-            <span>${patient.last_screening_date ? new Date(patient.last_screening_date).toLocaleDateString() : 'No screening yet'}</span>
+            <span>${escapeHtml(patient.full_name)}</span>
+            <span>${escapeHtml(patient.email)}</span>
+            <span>${escapeHtml(patient.last_prediction || 'Pending')}</span>
+            <span>${escapeHtml(patient.last_screening_date ? new Date(patient.last_screening_date).toLocaleDateString() : 'No screening yet')}</span>
           </button>
         `).join('');
 
@@ -158,21 +173,21 @@
               const patientAnswers = screenings.map((session) => `
                 <div class="detail-session-card">
                   <div class="detail-header">
-                    <h4>Screening ${session.id}</h4>
-                    <span>${session.screening_status}</span>
+                    <h4>Screening ${escapeHtml(session.id)}</h4>
+                    <span>${escapeHtml(session.screening_status)}</span>
                   </div>
                   <div class="info-list">
                     <div class="info-row"><span>Date</span><strong>${new Date(session.screening_date).toLocaleString()}</strong></div>
-                    <div class="info-row"><span>Prediction</span><strong>${session.predicted_class || 'Pending'}</strong></div>
+                    <div class="info-row"><span>Prediction</span><strong>${escapeHtml(session.predicted_class || 'Pending')}</strong></div>
                     <div class="info-row"><span>Risk</span><strong>${session.risk_score !== null && session.risk_score !== undefined ? Number(session.risk_score).toFixed(3) : 'N/A'}</strong></div>
                   </div>
                   <div class="info-box">
                     <strong>Depression summary</strong>
-                    <p>${session.screening_summary || 'No depression summary saved.'}</p>
+                    <p>${escapeHtml(session.screening_summary || 'No depression summary saved.')}</p>
                   </div>
                   <div class="answer-list">
                     ${(session.answers || []).map((answer) => `
-                      <div class="info-row"><span>${answer.question_key}</span><strong>${answer.response_value}</strong></div>
+                      <div class="info-row"><span>${escapeHtml(answer.question_key)}</span><strong>${escapeHtml(answer.response_value)}</strong></div>
                     `).join('') || '<p class="empty-state">No answered questions were saved for this session.</p>'}
                   </div>
                 </div>
@@ -180,8 +195,8 @@
 
               document.getElementById('patient-detail').innerHTML = `
                 <div class="detail-header">
-                  <h4>${detail.user.full_name}</h4>
-                  <span>${detail.user.email}</span>
+                  <h4>${escapeHtml(detail.user.full_name)}</h4>
+                  <span>${escapeHtml(detail.user.email)}</span>
                 </div>
                 ${patientAnswers || '<p class="empty-state">This patient has no saved screening history.</p>'}
               `;
@@ -193,14 +208,61 @@
         });
       }
 
+      function renderDoctorVerification(doctors) {
+        const list = document.getElementById('doctor-verification-list');
+        if (!doctors.length) {
+          list.innerHTML = '<p class="empty-state">No doctor registrations yet.</p>';
+          return;
+        }
+        list.innerHTML = doctors.map(({ user, profile }) => `
+          <article class="doctor-verification-row">
+            <div>
+              <strong>${escapeHtml(user.full_name)}</strong>
+              <span>${escapeHtml(user.email)} · ${escapeHtml(profile.specialization)}</span>
+              <span>${escapeHtml(profile.qualification)} · ${escapeHtml(profile.hospital)}</span>
+              <span>Registration: ${escapeHtml(profile.medical_registration_number)}</span>
+              <span>Status: ${escapeHtml(profile.verification_status)}</span>
+            </div>
+            ${profile.verification_status === 'pending' ? `
+              <div class="doctor-verification-actions">
+                <button class="primary-button" type="button" data-doctor-id="${escapeHtml(user.id)}" data-verification="verified">Verify doctor</button>
+                <button class="secondary-button danger-button" type="button" data-doctor-id="${escapeHtml(user.id)}" data-verification="rejected">Reject</button>
+              </div>
+            ` : ''}
+          </article>
+        `).join('');
+
+        list.querySelectorAll('[data-verification]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const action = button.dataset.verification;
+            const confirmed = window.confirm(`Are you sure you want to ${action} this doctor account?`);
+            if (!confirmed) return;
+            try {
+              await fetchJson(`/api/admin/doctors/${button.dataset.doctorId}/verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ verification_status: action }),
+              });
+              await loadDashboard();
+            } catch (error) {
+              window.alert(error.message);
+            }
+          });
+        });
+      }
+
       async function loadDashboard() {
         try {
           const data = await fetchJson('/api/admin/dashboard');
-          const patientData = await fetchJson('/api/admin/patients');
+          const [patientData, doctorData] = await Promise.all([
+            fetchJson('/api/admin/patients'),
+            fetchJson('/api/admin/doctors'),
+          ]);
           renderMetrics(data.metrics || {});
           renderBarChart(document.getElementById('activity-chart'), data.activity || [], '#3a8d7d');
           renderBarChart(document.getElementById('outcome-chart'), data.outcomes || [], '#9b8ecb');
           renderPatients(patientData.patients || []);
+          renderDoctorVerification(doctorData.doctors || []);
           renderTable(data.recent_activity || []);
           document.getElementById('admin-name').textContent = data.user?.full_name || 'Admin';
           document.getElementById('current-date').textContent = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
@@ -217,7 +279,7 @@
       });
 
       document.getElementById('clear-saved-data').addEventListener('click', async () => {
-        const confirmed = window.confirm('This will delete all saved screening sessions, answers, and depression data. Continue?');
+        const confirmed = window.confirm('This will permanently delete all saved screening sessions, answers, depression results, clinical notes, and recommendations. Patient and doctor accounts will remain. Continue?');
         if (!confirmed) return;
         try {
           const result = await fetch('/api/admin/clear-data', {
@@ -226,7 +288,7 @@
           });
           const data = await result.json();
           if (!result.ok) throw new Error(data.detail || 'Could not clear data');
-          document.getElementById('patient-list').innerHTML = '<p class="empty-state">Saved screening data has been cleared.</p>';
+          document.getElementById('patient-list').innerHTML = '<p class="empty-state">Saved screening and clinical review data has been cleared.</p>';
           document.getElementById('patient-detail').innerHTML = '<p class="empty-state">Patient details are now empty.</p>';
           await loadDashboard();
         } catch (error) {

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sneha Login</title>
     <link rel="stylesheet" href="/static/styles.css" />
-    <script src="/static/app.js" defer></script>
   </head>
   <body>
     <main class="auth-shell">
@@ -36,6 +35,18 @@
           </div>
         </form>
 
+        <div id="google-auth-section" class="google-auth-section" hidden>
+          <div class="auth-divider"><span>or</span></div>
+          <a class="google-button" href="/auth/google">
+            <span class="google-mark" aria-hidden="true">G</span>
+            Continue with Google
+          </a>
+          <p class="google-auth-note">Use Google with the same email address as your existing Sneha account.</p>
+        </div>
+        <p id="google-auth-unavailable" class="google-auth-note" hidden>
+          Google sign-in is not configured yet. Use email and password, or contact the administrator.
+        </p>
+
         <p id="login-message" class="status-banner" role="status"></p>
       </section>
     </main>
@@ -43,6 +54,34 @@
     <script>
       const form = document.getElementById('login-form');
       const message = document.getElementById('login-message');
+      const googleAuthSection = document.getElementById('google-auth-section');
+      const googleAuthUnavailable = document.getElementById('google-auth-unavailable');
+
+      const googleErrors = {
+        email_not_verified: 'Google could not verify this email address.',
+        invalid_identity: 'Google did not return a valid account identity.',
+        account_not_found: 'Create a Sneha account with this Google email first, then use Google sign-in.',
+        google_account_mismatch: 'This Google identity is already linked to a different Sneha account.',
+        doctor_pending: 'Your doctor account is waiting for administrator verification.',
+        account_inactive: 'This account is inactive. Contact an administrator for help.',
+        provider_error: 'Google sign-in was not completed. Please try again.',
+      };
+
+      const googleError = new URLSearchParams(window.location.search).get('google_error');
+      if (googleError) {
+        message.textContent = googleErrors[googleError] || 'Google sign-in failed.';
+        message.classList.add('error');
+      }
+
+      fetch('/api/auth/google/status')
+        .then((response) => response.json())
+        .then((data) => {
+          googleAuthSection.hidden = data.configured !== true;
+          googleAuthUnavailable.hidden = data.configured === true;
+        })
+        .catch((error) => {
+          console.error('Could not load Google sign-in availability.', error);
+        });
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -65,7 +104,7 @@
           if (!response.ok) {
             throw new Error(data.detail || 'Login failed.');
           }
-          window.location.href = data.user.role === 'admin' ? '/admin' : '/patient';
+          window.location.href = data.redirect_url || (data.user.role === 'admin' ? '/admin' : '/patient');
         } catch (error) {
           message.textContent = error.message;
           message.classList.add('error');

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from src.database import User, get_db
+from src.database import DoctorProfile, User, get_db
 
 load_dotenv()
 
@@ -67,6 +67,17 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
     if user.account_status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive.")
+    if user.role == "doctor":
+        doctor_profile = (
+            db.query(DoctorProfile)
+            .filter(DoctorProfile.user_id == user.id)
+            .first()
+        )
+        if doctor_profile is None or doctor_profile.verification_status != "verified":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Doctor account verification is required.",
+            )
     return user
 
 

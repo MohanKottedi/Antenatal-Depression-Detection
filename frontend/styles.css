@@ -573,7 +573,8 @@ textarea {
   color: #304940;
 }
 
-.auth-field input {
+.auth-field input,
+.auth-field select {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -588,6 +589,61 @@ textarea {
   align-items: center;
   gap: 12px;
   margin-top: 4px;
+}
+
+.google-auth-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #74847d;
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #e2e9e2;
+  content: "";
+}
+
+.google-button {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #cbd8ce;
+  border-radius: 12px;
+  background: #fff;
+  color: #20352f;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.google-button:hover {
+  border-color: #9bb9a7;
+  background: #f7faf7;
+}
+
+.google-mark {
+  color: #4285f4;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.google-auth-note {
+  margin: 0;
+  color: #64746d;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .checkbox-row {
@@ -816,6 +872,98 @@ textarea {
   background: #fff;
 }
 
+.profile-edit-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.profile-wide {
+  grid-column: 1 / -1;
+}
+
+.profile-edit-form .status-banner {
+  margin: 0;
+}
+
+.review-forms {
+  margin-top: 20px;
+}
+
+.review-form {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e3ece4;
+  border-radius: 14px;
+  background: #fbfdfb;
+}
+
+.small-muted {
+  color: #64746d;
+  font-size: 13px;
+}
+
+.search-control input {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #cbd8ce;
+  border-radius: 10px;
+}
+
+.doctor-patient-row {
+  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+}
+
+.care-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #e3ece4;
+  border-radius: 14px;
+}
+
+.care-team-row > div {
+  display: grid;
+  gap: 5px;
+}
+
+.care-team-row span {
+  color: #52665d;
+  font-size: 14px;
+}
+
+.doctor-verification-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #e3ece4;
+  border-radius: 14px;
+  background: #fbfdfb;
+}
+
+.doctor-verification-row > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.doctor-verification-row > div:first-child span {
+  color: #52665d;
+  font-size: 14px;
+}
+
+.doctor-verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .danger-button {
   border-color: #d69d9d;
   color: #7a2828;
@@ -846,5 +994,15 @@ textarea {
 
   .dashboard-main {
     padding: 18px;
+  }
+
+  .doctor-verification-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .care-team-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

@@ -119,7 +119,9 @@ class FastAPIConversationTests(unittest.TestCase):
         with patch.object(api, "ConversationEngine", return_value=engine):
             started = api.start_conversation()
         session = api.conversation_sessions[started["session_id"]]
-        session.last_activity = 0
+        session.last_activity = (
+            api.monotonic() - api.SESSION_IDLE_TIMEOUT_SECONDS - 1
+        )
 
         request = api.ConversationMessage(
             session_id=started["session_id"],

@@ -502,8 +502,10 @@ async function submitScreeningForm(event) {
   formStatusMessage.textContent = "Calculating your screening estimate...";
   formResultPanel.hidden = true;
   try {
-    const data = await postJson("/api/form/predict", { answers });
-    formStatusMessage.textContent = "";
+    const data = await postJson("/api/patient/assessments", { answers });
+    formStatusMessage.textContent = data.saved_session_id
+      ? "Your screening and answers were saved to your patient account."
+      : "";
     showScreeningResult(data.screening_result, formResultPanel);
   } catch (error) {
     formStatusMessage.textContent = error.message;
@@ -531,7 +533,9 @@ function updateControls(data) {
   } else if (data.screening_stopped) {
     statusMessage.textContent = "This screening session has ended.";
   } else if (data.completed) {
-    statusMessage.textContent = "The interview is complete.";
+    statusMessage.textContent = data.saved_session_id
+      ? "The interview is complete and saved to your patient account."
+      : "The interview is complete.";
   }
 }
 

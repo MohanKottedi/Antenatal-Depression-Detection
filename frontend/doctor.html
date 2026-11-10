@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sneha Clinician Portal</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="dashboard-body">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <p class="eyebrow">Clinician portal</p>
+          <h3>Sneha</h3>
+        </div>
+      </div>
+      <nav class="nav-stack">
+        <a class="nav-link active" href="/doctor">Overview</a>
+      </nav>
+      <button id="logout-button" class="secondary-button" type="button">Logout</button>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div>
+          <p class="eyebrow">Doctor dashboard</p>
+          <h2 id="doctor-welcome">Welcome</h2>
+        </div>
+        <span id="doctor-verification-status" class="dashboard-meta">Verified clinician</span>
+      </header>
+
+      <section id="doctor-metrics" class="metrics-grid"></section>
+
+      <section class="panel-card">
+        <div class="panel-header"><h3>Recent patient assessments</h3></div>
+        <div id="recent-assessments" class="table-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Patients who consented to share</h3>
+          <label class="search-control">
+            <span class="sr-only">Search patients</span>
+            <input id="patient-search" type="search" placeholder="Search name or email" />
+          </label>
+        </div>
+        <div id="doctor-patient-list" class="table-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header"><h3>Patient record and assessment review</h3></div>
+        <div id="doctor-patient-detail" class="detail-panel empty-state">
+          Select an assigned patient to review their shared history.
+        </div>
+      </section>
+    </main>
+
+    <script>
+      let selectedPatientId = null;
+      let searchTimer = null;
+
+      async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          ...options,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Request failed.');
+        }
+        return data;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[character]);
+      }
+
+      function renderMetrics(metrics) {
+        const items = [
+          ['Consented patients', metrics.assigned_patients],
+          ['Submitted assessments', metrics.submitted_assessments],
+          ['Depressed classifications to review', metrics.depressed_classifications_for_review],
+        ];
+        document.getElementById('doctor-metrics').innerHTML = items.map(([label, value]) => `
+          <article class="metric-card"><span>${escapeHtml(label)}</span><strong>${Number(value || 0)}</strong></article>
+        `).join('');
+      }
+
+      function renderRecentAssessments(rows) {
+        const list = document.getElementById('recent-assessments');
+        if (!rows.length) {
+          list.innerHTML = '<p class="empty-state">No recent assessments for your consented patients.</p>';
+          return;
+        }
+        list.innerHTML = rows.map((item) => `
+          <button class="table-row clickable-row doctor-patient-row" type="button" data-patient-id="${Number(item.patient_id)}">
+            <span>${escapeHtml(item.patient_name)}</span>
+            <span>${escapeHtml(new Date(item.screening_date).toLocaleDateString())}</span>
+            <span>${escapeHtml(item.screening_status)}</span>
+            <span>${escapeHtml(item.predicted_class || 'No prediction')}</span>
+          </button>
+        `).join('');
+        list.querySelectorAll('[data-patient-id]').forEach((button) => {
+          button.addEventListener('click', () => loadPatientHistory(Number(button.dataset.patientId)));
+        });
+      }
+
+      async function loadPatients(search = '') {
+        const data = await fetchJson(`/api/doctor/patients?search=${encodeURIComponent(search)}`);
+        const list = document.getElementById('doctor-patient-list');
+        if (!data.patients.length) {
+          list.innerHTML = '<p class="empty-state">No consented patients match this search.</p>';
+          return;
+        }
+        list.innerHTML = data.patients.map((patient) => `
+          <button class="table-row clickable-row" type="button" data-patient-id="${Number(patient.patient_id)}">
+            <span>${escapeHtml(patient.full_name)}</span>
+            <span>${patient.age == null ? 'Age not provided' : `${Number(patient.age)} years`}</span>
+            <span>${patient.gestational_age == null ? 'Gestational age not provided' : `${Number(patient.gestational_age)} weeks`}</span>
+            <span>${escapeHtml(patient.latest_assessment_date ? new Date(patient.latest_assessment_date).toLocaleDateString() : 'No assessment')}</span>
+          </button>
+        `).join('');
+        list.querySelectorAll('[data-patient-id]').forEach((button) => {
+          button.addEventListener('click', () => loadPatientHistory(Number(button.dataset.patientId)));
+        });
+      }
+
+      function renderHistory(data) {
+        const patient = data.patient;
+        const sessions = data.screenings || [];
+        const assessmentOptions = sessions.map((session) => `
+          <option value="${Number(session.id)}">Assessment ${Number(session.id)} — ${escapeHtml(new Date(session.screening_date).toLocaleDateString())}</option>
+        `).join('');
+        const assessmentCards = sessions.map((session) => `
+          <article class="detail-session-card">
+            <div class="detail-header">
+              <h4>Assessment ${Number(session.id)}</h4>
+              <span>${escapeHtml(session.screening_status)} · ${Number(session.completion_percentage || 0)}%</span>
+            </div>
+            <div class="info-list">
+              <div class="info-row"><span>Date</span><strong>${escapeHtml(new Date(session.screening_date).toLocaleString())}</strong></div>
+              <div class="info-row"><span>Depression result</span><strong>${escapeHtml(session.predicted_class || 'No prediction')}</strong></div>
+              <div class="info-row"><span>Model probability</span><strong>${session.risk_score == null ? 'Not available' : `${(Number(session.risk_score) * 100).toFixed(1)}%`}</strong></div>
+            </div>
+            <div class="info-box">
+              <strong>Screening interpretation</strong>
+              <p>${escapeHtml(session.screening_summary || 'No model result was generated.')}</p>
+              <p class="small-muted">Screening estimate only; not a diagnosis.</p>
+            </div>
+            <div class="answer-list">
+              ${(session.answers || []).map((answer) => `
+                <div class="info-row"><span>${escapeHtml(answer.question_key)}</span><strong>${escapeHtml(answer.response_value)}</strong></div>
+              `).join('') || '<p class="empty-state">No answer data saved.</p>'}
+            </div>
+          </article>
+        `).join('');
+        const noteCards = (data.clinical_notes || []).map((item) => `
+          <div class="info-box"><strong>Clinical note · ${escapeHtml(new Date(item.created_at).toLocaleString())}</strong><p>${escapeHtml(item.note)}</p></div>
+        `).join('') || '<p class="empty-state">No clinical notes yet.</p>';
+        const recommendations = (data.recommendations || []).map((item) => `
+          <div class="info-box"><strong>Recommendation · ${escapeHtml(new Date(item.created_at).toLocaleString())}</strong><p>${escapeHtml(item.recommendation)}</p></div>
+        `).join('') || '<p class="empty-state">No recommendations yet.</p>';
+
+        document.getElementById('doctor-patient-detail').innerHTML = `
+          <div class="detail-header">
+            <div><h4>${escapeHtml(patient.full_name)}</h4><span>${escapeHtml(patient.email)}</span></div>
+            <span>${escapeHtml(patient.gestational_age == null ? 'Gestational age not provided' : `${patient.gestational_age} weeks`)}</span>
+          </div>
+          <div class="info-list">
+            <div class="info-row"><span>Age</span><strong>${patient.age == null ? 'Not provided' : Number(patient.age)}</strong></div>
+            <div class="info-row"><span>Date of birth</span><strong>${escapeHtml(patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString() : 'Not provided')}</strong></div>
+            <div class="info-row"><span>Phone</span><strong>${escapeHtml(patient.contact_phone || 'Not provided')}</strong></div>
+            <div class="info-row"><span>Address</span><strong>${escapeHtml(patient.address || 'Not provided')}</strong></div>
+            <div class="info-row"><span>Medical history</span><strong>${escapeHtml(patient.medical_history || 'Not provided')}</strong></div>
+          </div>
+          <h4>Assessment history</h4>
+          ${assessmentCards || '<p class="empty-state">No submitted assessments yet.</p>'}
+          <h4>Clinical notes</h4>${noteCards}
+          <h4>Recommendations</h4>${recommendations}
+          <div class="panel-grid review-forms">
+            <form id="clinical-note-form" class="review-form">
+              <h4>Add clinical observation</h4>
+              <label class="auth-field">Assessment
+                <select name="screening_session_id">
+                  <option value="">General note</option>${assessmentOptions}
+                </select>
+              </label>
+              <label class="auth-field">Clinical note
+                <textarea name="note" rows="4" maxlength="5000" required></textarea>
+              </label>
+              <button class="primary-button" type="submit">Save note</button>
+            </form>
+            <form id="recommendation-form" class="review-form">
+              <h4>Add patient recommendation</h4>
+              <label class="auth-field">Assessment
+                <select name="screening_session_id">
+                  <option value="">General recommendation</option>${assessmentOptions}
+                </select>
+              </label>
+              <label class="auth-field">Recommendation
+                <textarea name="recommendation" rows="4" maxlength="5000" required></textarea>
+              </label>
+              <button class="primary-button" type="submit">Save recommendation</button>
+            </form>
+          </div>
+        `;
+
+        document.getElementById('clinical-note-form').addEventListener('submit', saveClinicalNote);
+        document.getElementById('recommendation-form').addEventListener('submit', saveRecommendation);
+      }
+
+      async function loadPatientHistory(patientId) {
+        selectedPatientId = patientId;
+        try {
+          const data = await fetchJson(`/api/doctor/patients/${patientId}/history`);
+          renderHistory(data);
+        } catch (error) {
+          document.getElementById('doctor-patient-detail').textContent = error.message;
+        }
+      }
+
+      async function saveClinicalNote(event) {
+        event.preventDefault();
+        if (selectedPatientId === null) return;
+        const formData = new FormData(event.currentTarget);
+        const sessionId = formData.get('screening_session_id');
+        try {
+          await fetchJson(`/api/doctor/patients/${selectedPatientId}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              note: formData.get('note'),
+              screening_session_id: sessionId ? Number(sessionId) : null,
+            }),
+          });
+          await loadPatientHistory(selectedPatientId);
+        } catch (error) {
+          window.alert(error.message);
+        }
+      }
+
+      async function saveRecommendation(event) {
+        event.preventDefault();
+        if (selectedPatientId === null) return;
+        const formData = new FormData(event.currentTarget);
+        const sessionId = formData.get('screening_session_id');
+        try {
+          await fetchJson(`/api/doctor/patients/${selectedPatientId}/recommendations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recommendation: formData.get('recommendation'),
+              screening_session_id: sessionId ? Number(sessionId) : null,
+            }),
+          });
+          await loadPatientHistory(selectedPatientId);
+        } catch (error) {
+          window.alert(error.message);
+        }
+      }
+
+      async function loadDoctorPortal() {
+        try {
+          const [identity, dashboard] = await Promise.all([
+            fetchJson('/api/me'),
+            fetchJson('/api/doctor/dashboard'),
+          ]);
+          if (identity.user.role !== 'doctor') {
+            window.location.href = '/auth/login';
+            return;
+          }
+          document.getElementById('doctor-welcome').textContent = `Welcome, ${identity.user.full_name}`;
+          renderMetrics(dashboard.metrics || {});
+          renderRecentAssessments(dashboard.recent_assessments || []);
+          await loadPatients();
+        } catch (error) {
+          console.error(error);
+          window.location.href = '/auth/login';
+        }
+      }
+
+      document.getElementById('patient-search').addEventListener('input', (event) => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => {
+          loadPatients(event.currentTarget.value).catch((error) => console.error(error));
+        }, 200);
+      });
+
+      document.getElementById('logout-button').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = '/auth/login';
+      });
+
+      loadDoctorPortal();
+    </script>
+  </body>
+</html>

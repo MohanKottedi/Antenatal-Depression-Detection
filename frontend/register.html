@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sneha Registration</title>
     <link rel="stylesheet" href="/static/styles.css" />
-    <script src="/static/app.js" defer></script>
   </head>
   <body>
     <main class="auth-shell">
@@ -19,9 +18,16 @@
         </div>
 
         <h2>Join Sneha</h2>
-        <p class="auth-subtitle">Create a secure patient account and begin screening.</p>
+        <p class="auth-subtitle">Create a secure patient or clinician account.</p>
 
         <form id="register-form" class="auth-form">
+          <label class="auth-field">
+            <span>Account type</span>
+            <select id="register-role" name="role" required>
+              <option value="patient" selected>Patient</option>
+              <option value="doctor">Doctor / clinician</option>
+            </select>
+          </label>
           <label class="auth-field">
             <span>Full name</span>
             <input name="full_name" type="text" autocomplete="name" required />
@@ -30,6 +36,56 @@
             <span>Email</span>
             <input name="email" type="email" autocomplete="email" required />
           </label>
+          <div id="patient-registration-fields" class="auth-form">
+            <label class="auth-field">
+              <span>Phone number</span>
+              <input name="phone" type="tel" autocomplete="tel" />
+            </label>
+            <label class="auth-field">
+              <span>Date of birth</span>
+              <input name="date_of_birth" type="date" />
+            </label>
+            <label class="auth-field">
+              <span>Gender</span>
+              <select name="gender">
+                <option value="">Prefer not to say</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="auth-field">
+              <span>Address</span>
+              <input name="address" type="text" autocomplete="street-address" />
+            </label>
+          </div>
+          <div id="doctor-registration-fields" class="auth-form" hidden>
+            <label class="auth-field">
+              <span>Phone number</span>
+              <input name="doctor_phone" type="tel" autocomplete="tel" />
+            </label>
+            <label class="auth-field">
+              <span>Medical registration number</span>
+              <input name="medical_registration_number" type="text" />
+            </label>
+            <label class="auth-field">
+              <span>Qualification</span>
+              <input name="qualification" type="text" />
+            </label>
+            <label class="auth-field">
+              <span>Specialization</span>
+              <input name="specialization" type="text" />
+            </label>
+            <label class="auth-field">
+              <span>Hospital / clinic</span>
+              <input name="hospital" type="text" />
+            </label>
+            <label class="auth-field">
+              <span>Years of experience</span>
+              <input name="years_of_experience" type="number" min="0" max="80" step="1" />
+            </label>
+            <p class="disclaimer">Doctor accounts remain pending until an administrator verifies the registration details.</p>
+          </div>
           <label class="auth-field">
             <span>Password</span>
             <input name="password" type="password" autocomplete="new-password" required minlength="8" />
@@ -55,6 +111,25 @@
     <script>
       const registerForm = document.getElementById('register-form');
       const registerMessage = document.getElementById('register-message');
+      const roleSelect = document.getElementById('register-role');
+      const patientFields = document.getElementById('patient-registration-fields');
+      const doctorFields = document.getElementById('doctor-registration-fields');
+
+      function setRoleFields() {
+        const isDoctor = roleSelect.value === 'doctor';
+        patientFields.hidden = isDoctor;
+        doctorFields.hidden = !isDoctor;
+        patientFields.querySelectorAll('input, select').forEach((input) => {
+          input.disabled = isDoctor;
+        });
+        doctorFields.querySelectorAll('input, select').forEach((input) => {
+          input.disabled = !isDoctor;
+          input.required = isDoctor && input.name !== 'doctor_phone';
+        });
+      }
+
+      roleSelect.addEventListener('change', setRoleFields);
+      setRoleFields();
 
       registerForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -65,9 +140,21 @@
         const payload = {
           full_name: String(formData.get('full_name') || '').trim(),
           email: String(formData.get('email') || '').trim(),
+          role: String(formData.get('role') || 'patient'),
           password: String(formData.get('password') || ''),
           confirm_password: String(formData.get('confirm_password') || ''),
           consent: Boolean(formData.get('consent')),
+          phone: String(formData.get('role') === 'doctor' ? formData.get('doctor_phone') || '' : formData.get('phone') || '').trim() || null,
+          date_of_birth: String(formData.get('date_of_birth') || '') || null,
+          gender: String(formData.get('gender') || '') || null,
+          address: String(formData.get('address') || '').trim() || null,
+          medical_registration_number: String(formData.get('medical_registration_number') || '').trim() || null,
+          qualification: String(formData.get('qualification') || '').trim() || null,
+          specialization: String(formData.get('specialization') || '').trim() || null,
+          hospital: String(formData.get('hospital') || '').trim() || null,
+          years_of_experience: formData.get('years_of_experience') === null || formData.get('years_of_experience') === ''
+            ? null
+            : Number(formData.get('years_of_experience')),
         };
 
         try {
@@ -81,8 +168,8 @@
           if (!response.ok) {
             throw new Error(data.detail || 'Registration failed.');
           }
-          registerMessage.textContent = 'Registration successful. Redirecting to login...';
-          setTimeout(() => { window.location.href = '/auth/login'; }, 700);
+          registerMessage.textContent = data.message || 'Registration successful. Redirecting to login...';
+          setTimeout(() => { window.location.href = '/auth/login'; }, 1200);
         } catch (error) {
           registerMessage.textContent = error.message;
           registerMessage.classList.add('error');

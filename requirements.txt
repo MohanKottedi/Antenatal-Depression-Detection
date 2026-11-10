@@ -4,6 +4,8 @@ joblib
 numpy
 fastapi
 uvicorn
+authlib
+httpx
 torch
 sqlalchemy
 pymysql
@@ -12,5 +14,4 @@ python-dotenv
 bcrypt
 pyjwt
 alembic
-
 

@@ -7,3 +7,8 @@
 __pycache__/
 *.pyc
 .venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example

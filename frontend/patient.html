@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sneha Patient Portal</title>
     <link rel="stylesheet" href="/static/styles.css" />
-    <script src="/static/app.js" defer></script>
   </head>
   <body class="dashboard-body">
     <aside class="sidebar">
@@ -18,7 +17,7 @@
       </div>
       <nav class="nav-stack">
         <a class="nav-link active" href="/patient">Overview</a>
-        <a class="nav-link" href="/">Start screening</a>
+        <a class="nav-link" href="/screening">Start screening</a>
       </nav>
       <button id="logout-button" class="secondary-button" type="button">Logout</button>
     </aside>
@@ -31,7 +30,7 @@
         </div>
         <div class="dashboard-meta">
           <span id="current-date"></span>
-          <a class="primary-button" href="/">Complete new screening</a>
+          <a class="primary-button" href="/screening">Complete new screening</a>
         </div>
       </header>
 
@@ -40,6 +39,56 @@
           <h3>Profile</h3>
         </div>
         <div id="profile-summary" class="info-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header"><h3>Update profile and pregnancy details</h3></div>
+        <form id="patient-profile-form" class="profile-edit-form">
+          <label class="auth-field">Age
+            <input name="age" type="number" min="10" max="60" />
+          </label>
+          <label class="auth-field">Gestational age (weeks)
+            <input name="gestational_age" type="number" min="0" max="45" step="any" />
+          </label>
+          <label class="auth-field">Phone
+            <input name="contact_phone" type="tel" maxlength="40" />
+          </label>
+          <label class="auth-field">Date of birth
+            <input name="date_of_birth" type="date" />
+          </label>
+          <label class="auth-field">Gender
+            <select name="gender">
+              <option value="">Prefer not to say</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="auth-field">City
+            <input name="city" type="text" maxlength="120" />
+          </label>
+          <label class="auth-field">Address
+            <input name="address" type="text" maxlength="1000" />
+          </label>
+          <label class="auth-field profile-wide">Relevant medical history (optional)
+            <textarea name="notes" rows="3" maxlength="5000"></textarea>
+          </label>
+          <button class="primary-button" type="submit">Save profile</button>
+          <p id="profile-form-status" class="status-banner" role="status"></p>
+        </form>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header">
+          <h3>Care team sharing</h3>
+        </div>
+        <p class="form-intro">Only verified doctors you explicitly authorize can review your assessment history. You can revoke sharing at any time.</p>
+        <div id="care-team-list" class="table-list"></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-header"><h3>Doctor notes and recommendations</h3></div>
+        <div id="clinical-guidance" class="detail-panel"></div>
       </section>
 
       <section class="panel-card">
@@ -70,18 +119,39 @@
         return data;
       }
 
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[character]);
+      }
+
       function renderProfile(profile) {
         const profileData = [
           ['Name', profile.user?.full_name || 'Not available'],
           ['Email', profile.user?.email || 'Not available'],
           ['Reference', profile.patient_reference || 'Pending'],
           ['Age', profile.age || 'Not set'],
+          ['Date of birth', profile.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : 'Not set'],
+          ['Gender', profile.gender || 'Not set'],
+          ['Phone', profile.contact_phone || 'Not set'],
+          ['Address', profile.address || 'Not set'],
           ['Gestational age', profile.gestational_age ? `${profile.gestational_age} weeks` : 'Not set'],
           ['City', profile.city || 'Not set'],
         ];
         document.getElementById('profile-summary').innerHTML = profileData.map(([label, value]) => `
-          <div class="info-row"><span>${label}</span><strong>${value}</strong></div>
+          <div class="info-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
         `).join('');
+      }
+
+      function populateProfileForm(profile) {
+        const form = document.getElementById('patient-profile-form');
+        for (const field of ['age', 'gestational_age', 'contact_phone', 'date_of_birth', 'gender', 'city', 'address', 'notes']) {
+          form.elements.namedItem(field).value = profile[field] ?? '';
+        }
       }
 
       function renderScreenings(rows) {
@@ -94,9 +164,9 @@
 
         list.innerHTML = rows.map((row) => `
           <button class="table-row clickable-row" type="button" data-session-id="${row.id}">
-            <span>${new Date(row.screening_date).toLocaleDateString()}</span>
-            <span>${row.screening_status}</span>
-            <span>${row.predicted_class || 'Pending'}</span>
+            <span>${escapeHtml(new Date(row.screening_date).toLocaleDateString())}</span>
+            <span>${escapeHtml(row.screening_status)}</span>
+            <span>${escapeHtml(row.predicted_class || 'Pending')}</span>
             <span>${(row.completion_percentage || 0)}%</span>
           </button>
         `).join('');
@@ -106,22 +176,85 @@
             const session = rows.find((item) => item.id === Number(button.dataset.sessionId));
             if (!session) return;
             const answerHtml = (session.answers || []).map((answer) => `
-              <div class="info-row"><span>${answer.question_key}</span><strong>${answer.response_value}</strong></div>
+              <div class="info-row"><span>${escapeHtml(answer.question_key)}</span><strong>${escapeHtml(answer.response_value)}</strong></div>
             `).join('') || '<p class="empty-state">No individual answers were saved for this screening.</p>';
             const summary = session.screening_summary || 'No depression summary was saved for this screening.';
             document.getElementById('screening-detail').innerHTML = `
               <div class="detail-header">
-                <h4>Screening ${session.id}</h4>
-                <span>${session.predicted_class || 'Pending'} • ${session.risk_score !== null && session.risk_score !== undefined ? Number(session.risk_score).toFixed(3) : 'No risk score'}</span>
+                <h4>Screening ${escapeHtml(session.id)}</h4>
+                <span>${escapeHtml(session.predicted_class || 'Pending')} • ${session.risk_score !== null && session.risk_score !== undefined ? escapeHtml(Number(session.risk_score).toFixed(3)) : 'No risk score'}</span>
               </div>
               <div class="info-box">
                 <strong>Depression prediction summary</strong>
-                <p>${summary}</p>
+                <p>${escapeHtml(summary)}</p>
               </div>
               <div class="answer-list">${answerHtml}</div>
             `;
           });
         });
+      }
+
+      function renderCareTeam(doctors) {
+        const list = document.getElementById('care-team-list');
+        if (!doctors.length) {
+          list.innerHTML = '<p class="empty-state">No verified doctors are available yet.</p>';
+          return;
+        }
+        list.innerHTML = doctors.map((doctor) => `
+          <div class="care-team-row">
+            <div>
+              <strong>${escapeHtml(doctor.full_name)}</strong>
+              <span>${escapeHtml(doctor.specialization)} · ${escapeHtml(doctor.hospital)}</span>
+              <span>Sharing status: ${escapeHtml(doctor.consent_status || 'not shared')}</span>
+            </div>
+            ${doctor.consent_status === 'consented'
+              ? `<button class="secondary-button danger-button" type="button" data-doctor-id="${Number(doctor.user_id)}" data-action="revoke">Revoke access</button>`
+              : `<button class="primary-button" type="button" data-doctor-id="${Number(doctor.user_id)}" data-action="share">Share history</button>`}
+          </div>
+        `).join('');
+        list.querySelectorAll('[data-action]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const action = button.dataset.action;
+            const confirmed = action !== 'revoke' || window.confirm('Revoke this doctor’s access to your assessment history?');
+            if (!confirmed) return;
+            try {
+              await fetchJson(`/api/patient/doctors/${button.dataset.doctorId}/consent`, {
+                method: action === 'share' ? 'POST' : 'DELETE',
+              });
+              await loadCareTeam();
+            } catch (error) {
+              window.alert(error.message);
+            }
+          });
+        });
+      }
+
+      function renderClinicalGuidance(notes, recommendations) {
+        const entries = [
+          ...notes.map((item) => ({
+            label: `Clinical note · Doctor ${item.doctor_id}`,
+            text: item.note,
+            created_at: item.created_at,
+          })),
+          ...recommendations.map((item) => ({
+            label: `Recommendation · Doctor ${item.doctor_id}`,
+            text: item.recommendation,
+            created_at: item.created_at,
+          })),
+        ].sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+        document.getElementById('clinical-guidance').innerHTML = entries.length
+          ? entries.map((item) => `
+              <div class="info-box">
+                <strong>${escapeHtml(item.label)} · ${escapeHtml(new Date(item.created_at).toLocaleString())}</strong>
+                <p>${escapeHtml(item.text)}</p>
+              </div>
+            `).join('')
+          : '<p class="empty-state">No doctor notes or recommendations have been added.</p>';
+      }
+
+      async function loadCareTeam() {
+        const data = await fetchJson('/api/patient/doctors');
+        renderCareTeam(data.doctors || []);
       }
 
       async function loadPatientPortal() {
@@ -130,7 +263,10 @@
           document.getElementById('welcome-name').textContent = `Welcome, ${data.user?.full_name || 'Patient'}`;
           document.getElementById('current-date').textContent = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
           renderProfile(data.profile || {});
+          populateProfileForm(data.profile || {});
           renderScreenings(data.screenings || []);
+          renderClinicalGuidance(data.clinical_notes || [], data.recommendations || []);
+          await loadCareTeam();
         } catch (error) {
           console.error(error);
           window.location.href = '/auth/login';
@@ -140,6 +276,38 @@
       document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
         window.location.href = '/auth/login';
+      });
+
+      document.getElementById('patient-profile-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+        const payload = {};
+        for (const field of ['age', 'gestational_age', 'contact_phone', 'date_of_birth', 'gender', 'city', 'address', 'notes']) {
+          const value = formData.get(field);
+          if (value === '') {
+            payload[field] = null;
+          } else if (field === 'age') {
+            payload[field] = Number(value);
+          } else if (field === 'gestational_age') {
+            payload[field] = Number(value);
+          } else {
+            payload[field] = value;
+          }
+        }
+        const status = document.getElementById('profile-form-status');
+        try {
+          const result = await fetchJson('/api/patient/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          status.textContent = result.message;
+          await loadPatientPortal();
+        } catch (error) {
+          status.textContent = error.message;
+          status.classList.add('error');
+        }
       });
 
       loadPatientPortal();

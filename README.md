@@ -29,10 +29,10 @@ Train / Validation / Test
 The web page offers both the supportive conversation and a structured
 questionnaire. The questionnaire uses the same 25 required features, answer
 choices, validation, saved model, and screening-result explanation as the
-conversation. Form answers are used for the request and are not saved to a
-database. A nonzero answer to the self-harm question interrupts the form
-screening without producing a model result and displays an immediate-safety
-message.
+conversation. Patients must sign in to submit a screening; submitted answers
+and server-generated depression results are saved to the patient's account.
+A nonzero answer to the self-harm question interrupts screening without
+producing a model result and displays an immediate-safety message.
 In conversation mode, Sneha also has a small animated portrait that moves
 while preparing and responding; it uses inline artwork and CSS animation,
 with no external image service. Conversation replies use Azure Speech neural
@@ -114,13 +114,19 @@ Run the lifecycle and saved-model integration tests from this folder:
 python -m unittest discover -s src -p "test*.py" -v
 ```
 
-Start the web app from this folder with:
+Configure the database and application secrets before first startup. Copy
+`.env.example` to `.env`, replace every placeholder with your own values, and
+create the configured MySQL database. Then apply migrations and start the app:
 
 ```powershell
+Copy-Item .env.example .env
+python -m alembic upgrade head
 python -m uvicorn app:app --reload
 ```
 
-The chat page is served at `http://127.0.0.1:8000/`. Conversation sessions are
+The root URL `http://127.0.0.1:8000/` opens the separate login page. Patients
+must sign in before opening `/screening`; successful patient login opens their
+dashboard, where they can choose **Start screening**. Conversation sessions are
 kept in memory and expire after 30 minutes of inactivity.
 
 Patient flow:
@@ -134,3 +140,40 @@ Patient flow:
   dashboard, including the charted depression distribution and recent activity.
 - The admin dashboard includes a clear-data action to remove saved screening
   data when a fresh review cycle is needed.
+
+Doctor authentication:
+
+- The registration page supports both patient and doctor accounts. Doctor
+  registrations collect professional credentials and remain pending; they do
+  not grant access to patient records automatically.
+- An administrator can review submitted doctor credentials in the
+  **Doctor verification** section of `/admin`. Verifying activates the account;
+  rejecting it blocks sign-in.
+- Apply schema updates with `python -m alembic upgrade head` after setting
+  `DATABASE_URL` in `.env`. Existing databases are not altered by
+  `create_all()` alone.
+- Patients can explicitly share history with a verified clinician from the
+  patient portal and can revoke access. Clinicians can only search or open
+  records while that consent is active. Sensitive record views and clinical
+  notes/recommendations are audited.
+- Patients can update their profile details and review their saved answers,
+  screening results, clinician notes, and recommendations. Clinicians can add
+  assessment-linked notes and recommendations without changing the model output.
+- Set `COOKIE_SECURE=true` when serving the application over HTTPS. Production
+  startup requires a non-placeholder `SECRET_KEY`.
+- Optional Google sign-in: create a Google OAuth client, set
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in
+  `.env`, and add the exact callback URI to the Google OAuth client's
+  authorized redirect URIs (for local development,
+  `http://127.0.0.1:8000/auth/google/callback`). Restart FastAPI after changing
+  `.env`; it is loaded from the project directory regardless of the launch
+  directory. The Google button appears only when both client credentials are
+  configured. Google sign-in requires a verified email already registered
+  with Sneha; it does not create accounts or bypass doctor approval and patient
+  consent. Until credentials are configured, the login page explains that
+  Google sign-in is unavailable and password login continues to work.
+
+The current repository contains an antenatal depression predictor only. It
+does not include a validated anxiety questionnaire or anxiety prediction
+artifact, so this application does not report an anxiety prediction. Screening
+outputs are estimates and are not diagnoses.
