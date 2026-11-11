@@ -16,7 +16,14 @@
         </div>
       </div>
       <nav class="nav-stack">
-        <a class="nav-link active" href="/patient">Overview</a>
+        <a class="nav-link active" href="#overview" data-view-target="overview" aria-current="page">Overview</a>
+        <a class="nav-link" href="#pregnancy" data-view-target="pregnancy">Pregnancy tracker</a>
+        <a class="nav-link" href="#mood" data-view-target="mood">Daily mood</a>
+        <a class="nav-link" href="#mental-health" data-view-target="mental-health">Mental health progress</a>
+        <a class="nav-link" href="#assistant" data-view-target="assistant">Pregnancy assistant</a>
+        <a class="nav-link" href="#relaxation" data-view-target="relaxation">Relaxation</a>
+        <a class="nav-link" href="#nutrition" data-view-target="nutrition">Nutrition</a>
+        <a class="nav-link" href="#emergency" data-view-target="emergency">Emergency support</a>
         <a class="nav-link" href="/screening">Start screening</a>
       </nav>
       <button id="logout-button" class="secondary-button" type="button">Logout</button>
@@ -34,6 +41,7 @@
         </div>
       </header>
 
+      <section id="view-overview" class="patient-view" data-view-page="overview">
       <section class="panel-card profile-card">
         <div class="panel-header">
           <h3>Profile</h3>
@@ -42,14 +50,12 @@
       </section>
 
       <section class="panel-card">
-        <div class="panel-header"><h3>Update profile and pregnancy details</h3></div>
+        <div class="panel-header"><h3>Update profile</h3></div>
         <form id="patient-profile-form" class="profile-edit-form">
           <label class="auth-field">Age
             <input name="age" type="number" min="10" max="60" />
           </label>
-          <label class="auth-field">Gestational age (weeks)
-            <input name="gestational_age" type="number" min="0" max="45" step="any" />
-          </label>
+          <input name="gestational_age" type="hidden" />
           <label class="auth-field">Phone
             <input name="contact_phone" type="tel" maxlength="40" />
           </label>
@@ -79,9 +85,7 @@
       </section>
 
       <section class="panel-card">
-        <div class="panel-header">
-          <h3>Care team sharing</h3>
-        </div>
+        <div class="panel-header"><h3>Care team sharing</h3></div>
         <p class="form-intro">Only verified doctors you explicitly authorize can review your assessment history. You can revoke sharing at any time.</p>
         <div id="care-team-list" class="table-list"></div>
       </section>
@@ -92,18 +96,250 @@
       </section>
 
       <section class="panel-card">
-        <div class="panel-header">
-          <h3>Recent screenings</h3>
-        </div>
+        <div class="panel-header"><h3>Recent screenings</h3></div>
         <div id="screening-list" class="table-list"></div>
       </section>
 
       <section class="panel-card">
-        <div class="panel-header">
-          <h3>Saved assessment details</h3>
-        </div>
+        <div class="panel-header"><h3>Saved assessment details</h3></div>
         <div id="screening-detail" class="detail-panel empty-state">Select a screening entry to view the saved answers and depression summary.</div>
       </section>
+      </section>
+
+      <section id="pregnancy" class="panel-card wellbeing-panel patient-view" data-view-page="pregnancy" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Pregnancy overview</p>
+            <h3>Pregnancy week tracker</h3>
+          </div>
+          <span id="pregnancy-trimester" class="wellbeing-badge">Dates not set</span>
+        </div>
+        <div id="pregnancy-progress" class="pregnancy-progress-card">
+          <p>Enter your last menstrual period or a clinician-confirmed due date to see an estimate.</p>
+        </div>
+        <form id="pregnancy-profile-form" class="profile-edit-form">
+          <label class="auth-field">Last menstrual period (optional)
+            <input name="lmp_date" type="date" />
+          </label>
+          <label class="auth-field">Clinically confirmed due date (optional)
+            <input name="confirmed_due_date" type="date" />
+          </label>
+          <label class="auth-field">Follow-up screening reminder (optional)
+            <input name="follow_up_reminder_date" type="date" />
+          </label>
+          <label class="auth-field">Reminder time (your local time)
+            <input name="reminder_time" type="time" value="15:41" required />
+          </label>
+          <div class="auth-field">
+            <span>Notification timezone</span>
+            <p id="reminder-timezone" class="small-muted">Detected from this browser.</p>
+          </div>
+          <label class="checkbox-row">
+            <input name="weekly_tracker_reminders" type="checkbox" checked />
+            Send a reminder when a new tracker week begins
+          </label>
+          <label class="checkbox-row">
+            <input name="screening_reminders" type="checkbox" checked />
+            Send the saved follow-up screening reminder
+          </label>
+          <label class="auth-field">Diet preference
+            <select name="dietary_preference">
+              <option value="no_preference">No preference</option>
+              <option value="vegetarian">Vegetarian</option>
+              <option value="vegan">Vegan</option>
+              <option value="non_vegetarian">Non-vegetarian</option>
+            </select>
+          </label>
+          <label class="auth-field profile-wide">Food allergies or restrictions (optional)
+            <input name="food_allergies" type="text" maxlength="1000" autocomplete="off" />
+          </label>
+          <p class="form-intro profile-wide">If your dates are uncertain, leave them blank and ask your maternity clinician. A confirmed due date is stored separately from the LMP estimate. Enable browser notifications below to receive weekly tracker and scheduled screening reminders, even when this dashboard is closed.</p>
+          <button class="primary-button" type="submit">Save pregnancy dates</button>
+          <p id="pregnancy-status" class="status-banner" role="status"></p>
+        </form>
+        <div class="notification-settings">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Private reminders</p>
+              <h3>Background notifications</h3>
+            </div>
+          </div>
+          <p class="form-intro">Reminders are sent at the selected local time. Push messages use a generic preview so sensitive details are not shown on your lock screen.</p>
+          <div class="notification-actions">
+            <button id="enable-notifications" class="secondary-button" type="button">Enable notifications on this device</button>
+            <button id="disable-notifications" class="secondary-button" type="button" hidden>Turn off on this device</button>
+          </div>
+          <p id="notification-status" class="small-muted" role="status">Checking notification setup…</p>
+        </div>
+      </section>
+
+      <section id="mood" class="panel-card wellbeing-panel patient-view" data-view-page="mood" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Emotional wellbeing</p>
+            <h3>Daily mood check-in</h3>
+          </div>
+        </div>
+        <p class="form-intro">Track how you feel, stress, and sleep. These entries are for your reflection and do not diagnose depression.</p>
+        <form id="mood-entry-form" class="profile-edit-form">
+          <label class="auth-field">Mood
+            <select name="mood" required>
+              <option value="happy">Happy</option>
+              <option value="calm">Calm</option>
+              <option value="neutral">Neutral</option>
+              <option value="sad">Sad</option>
+              <option value="anxious">Anxious</option>
+              <option value="stressed">Stressed</option>
+              <option value="irritated">Irritated</option>
+              <option value="overwhelmed">Overwhelmed</option>
+            </select>
+          </label>
+          <label class="auth-field">Stress (1 low – 5 high)
+            <input name="stress_level" type="number" min="1" max="5" />
+          </label>
+          <label class="auth-field">Sleep last night (hours)
+            <input name="sleep_hours" type="number" min="0" max="24" step="0.25" />
+          </label>
+          <label class="auth-field profile-wide">Optional private journal
+            <textarea name="journal" rows="3" maxlength="2000"></textarea>
+          </label>
+          <button class="primary-button" type="submit">Save today's check-in</button>
+          <p id="mood-status" class="status-banner" role="status"></p>
+        </form>
+        <div class="panel-grid wellbeing-grid">
+          <div>
+            <h4>Recent mood entries</h4>
+            <div id="mood-history" class="table-list"></div>
+          </div>
+          <div>
+            <h4>Weekly mood and stress trend</h4>
+            <div id="mood-chart" class="wellbeing-chart"></div>
+          </div>
+          <div>
+            <h4>Mood calendar</h4>
+            <div class="mood-calendar-controls">
+              <button id="mood-month-previous" class="secondary-button" type="button" aria-label="Previous month">Previous</button>
+              <strong id="mood-calendar-title"></strong>
+              <button id="mood-month-next" class="secondary-button" type="button" aria-label="Next month">Next</button>
+            </div>
+            <div id="mood-calendar"></div>
+          </div>
+          <div>
+            <h4>Monthly mood trend</h4>
+            <div id="mood-monthly-chart" class="wellbeing-chart"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="mental-health" class="panel-card wellbeing-panel patient-view" data-view-page="mental-health" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Your history</p>
+            <h3>Mental health progress</h3>
+          </div>
+          <a class="secondary-link" href="/screening">New screening</a>
+        </div>
+        <div id="mental-health-notices" class="notice-stack"></div>
+        <div id="screening-progress" class="table-list"></div>
+        <div>
+          <h4>Monthly completed screenings</h4>
+          <div id="screening-chart" class="wellbeing-chart"></div>
+        </div>
+        <div class="panel-grid wellbeing-grid">
+          <div>
+            <h4>Questionnaire response sum · out of 27</h4>
+            <p class="small-muted">Simple sum of symptom responses; not a validated clinical score.</p>
+            <div id="screening-score-chart" class="assessment-chart"></div>
+          </div>
+          <div>
+            <h4>Model-estimated probability</h4>
+            <p class="small-muted">Model output only. A change does not confirm a clinical change or diagnosis.</p>
+            <div id="screening-model-chart" class="assessment-chart"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="assistant" class="panel-card wellbeing-panel patient-view" data-view-page="assistant" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">General education and support</p>
+            <h3>Pregnancy assistant</h3>
+          </div>
+          <div class="inline-actions">
+            <button id="new-assistant-chat" class="secondary-button" type="button">New chat</button>
+            <button id="delete-assistant-chat" class="secondary-button danger-button" type="button">Delete chat</button>
+          </div>
+        </div>
+        <p class="form-intro">Sneha can offer general pregnancy education, not diagnosis or treatment. The assistant uses local Ollama; avoid sharing names, addresses, or other identifying details.</p>
+        <label class="auth-field">Saved conversations
+          <select id="assistant-conversation-select"></select>
+        </label>
+        <div id="assistant-messages" class="assistant-messages" role="log" aria-live="polite"></div>
+        <form id="assistant-form" class="assistant-form">
+          <label class="auth-field">Your question
+            <textarea id="assistant-input" rows="3" maxlength="4000" required></textarea>
+          </label>
+          <button id="assistant-send" class="primary-button" type="submit">Ask Sneha</button>
+        </form>
+        <p id="assistant-status" class="status-banner" role="status"></p>
+      </section>
+
+      <section id="relaxation" class="panel-card wellbeing-panel patient-view" data-view-page="relaxation" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Take a gentle pause</p>
+            <h3>Meditation and relaxation</h3>
+          </div>
+        </div>
+        <p class="form-intro">Stop any activity if you feel pain, dizziness, breathlessness, or discomfort.</p>
+        <div id="meditation-activities" class="wellbeing-card-grid"></div>
+        <div id="meditation-status" class="status-banner" role="status"></div>
+      </section>
+
+      <section id="nutrition" class="panel-card wellbeing-panel patient-view" data-view-page="nutrition" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">General food inspiration</p>
+            <h3>Pregnancy nutrition</h3>
+          </div>
+        </div>
+        <div id="nutrition-content" class="detail-panel"></div>
+        <label class="checkbox-row wellbeing-consent">
+          <input id="share-allergies-local" type="checkbox" />
+          <span>If I request AI meal ideas, I agree that my saved food-allergy notes may be sent to the local Ollama service on this server. The result is not allergy-safe; I will check ingredients and labels.</span>
+        </label>
+        <button id="generate-meal-ideas" class="primary-button" type="button">Generate AI meal inspiration</button>
+        <div id="ai-meal-ideas" class="info-box" hidden></div>
+        <p id="nutrition-status" class="status-banner" role="status"></p>
+        <div class="hydration-reminder">
+          <label class="auth-field">On-page reminder interval
+            <select id="hydration-interval">
+              <option value="30">30 minutes</option>
+              <option value="60" selected>60 minutes</option>
+              <option value="90">90 minutes</option>
+            </select>
+          </label>
+          <button id="hydration-reminder-toggle" class="secondary-button" type="button">Start hydration reminders</button>
+          <p id="hydration-reminder-status" class="small-muted" role="status">Reminders run only while this page is open. Follow your clinician's fluid advice.</p>
+        </div>
+      </section>
+
+      <section id="emergency" class="panel-card wellbeing-panel emergency-panel patient-view" data-view-page="emergency" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Urgent support</p>
+            <h3>Emergency and maternity support</h3>
+          </div>
+        </div>
+        <p id="emergency-guidance" class="emergency-guidance"></p>
+        <div id="emergency-contacts" class="table-list"></div>
+        <h4>Warning signs that need prompt professional advice</h4>
+        <ul id="emergency-warning-signs"></ul>
+        <button id="find-maternity-hospital" class="secondary-button" type="button">Find a nearby maternity hospital</button>
+        <p id="emergency-map-notice" class="small-muted"></p>
+        <div id="emergency-references" class="reference-list"></div>
+      </section>
+
     </main>
 
     <script>
@@ -312,5 +548,6 @@
 
       loadPatientPortal();
     </script>
+    <script src="/static/wellbeing.js"></script>
   </body>
 </html>

@@ -37,6 +37,7 @@ from src.database import AuditLog, ClinicalNote, DoctorPatient, DoctorProfile, P
 from src.sneha.conversation_engine import ConversationEngine
 from src.sneha.conversation_manager import QUESTION_TEMPLATES
 from src.sneha.feature_extractor import CATEGORY_VALUES, validate_update
+from src.wellbeing_api import router as wellbeing_router
 from src.sneha.feature_schema import (
     CATEGORICAL_FEATURES,
     FEATURE_SCHEMA,
@@ -46,6 +47,7 @@ from src.sneha.feature_schema import (
 )
 
 app = FastAPI(title="Antenatal Depression Screening API")
+app.include_router(wellbeing_router)
 cookie_secure = os.getenv("COOKIE_SECURE", "false").strip().lower() == "true"
 app.add_middleware(
     SessionMiddleware,
@@ -216,6 +218,18 @@ def startup_event() -> None:
         ensure_admin_account(db)
     finally:
         db.close()
+
+
+@app.get("/service-worker.js", include_in_schema=False)
+def service_worker() -> FileResponse:
+    return FileResponse(
+        frontend_dir / "service-worker.js",
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache",
+        },
+    )
 
 
 def frontend() -> FileResponse:

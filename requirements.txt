@@ -6,6 +6,7 @@ fastapi
 uvicorn
 authlib
 httpx
+requests
 torch
 sqlalchemy
 pymysql
@@ -14,4 +15,5 @@ python-dotenv
 bcrypt
 pyjwt
 alembic
-
+pywebpush
+tzdata

@@ -676,10 +676,15 @@ textarea {
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
   display: flex;
+  flex: 0 0 220px;
   flex-direction: column;
+  height: 100vh;
   gap: 22px;
   width: 220px;
+  overflow-y: auto;
   padding: 22px 18px;
   border-right: 1px solid #dfeae1;
   background: #fff;
@@ -707,6 +712,26 @@ textarea {
 .nav-link.active,
 .nav-link:hover {
   background: #edf4ef;
+}
+
+.nav-link.active {
+  color: #1f5948;
+  font-weight: 700;
+}
+
+.patient-view {
+  animation: view-enter 180ms ease-out;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0.75;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-main {
@@ -887,6 +912,28 @@ textarea {
   margin: 0;
 }
 
+.notification-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid #dce8df;
+  border-radius: 16px;
+  background: #f7faf6;
+}
+
+.notification-settings .panel-header,
+.notification-settings .form-intro,
+.notification-settings p {
+  margin: 0;
+}
+
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .review-forms {
   margin-top: 20px;
 }
@@ -981,12 +1028,437 @@ textarea {
   color: #52665d;
 }
 
+.wellbeing-panel {
+  margin-bottom: 20px;
+  scroll-margin-top: 20px;
+}
+
+.wellbeing-panel h3 {
+  margin: 0;
+  color: #294d42;
+}
+
+.wellbeing-panel h4 {
+  margin: 18px 0 10px;
+  color: #365a4d;
+}
+
+.wellbeing-badge {
+  padding: 7px 12px;
+  border: 1px solid #d5e6db;
+  border-radius: 999px;
+  background: #f1f7f3;
+  color: #315d4d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pregnancy-progress-card {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #dcebe1;
+  border-radius: 16px;
+  background: linear-gradient(125deg, #f1f8f3, #fff8f1 72%);
+}
+
+.pregnancy-progress-card p,
+.pregnancy-progress-card .small-muted {
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.pregnancy-stats {
+  display: grid;
+  gap: 4px;
+}
+
+.pregnancy-stats > strong {
+  color: #285d4a;
+  font-size: clamp(24px, 5vw, 36px);
+}
+
+.pregnancy-stats > strong span,
+.pregnancy-stats > span {
+  color: #536a60;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.pregnancy-progress-track,
+.trend-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eee8;
+}
+
+.pregnancy-progress-track > span,
+.trend-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #64a48a, #a4c99d);
+  transition: width 350ms ease;
+}
+
+.wellbeing-grid {
+  margin-top: 18px;
+}
+
+.wellbeing-chart,
+.notice-stack,
+.reference-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mood-calendar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mood-calendar-controls .secondary-button {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.mood-calendar-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.mood-calendar-table th {
+  color: #60736a;
+  font-size: 12px;
+}
+
+.mood-calendar-table td {
+  height: 48px;
+  border-radius: 9px;
+  background: #f5f7f4;
+  color: #55665e;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.mood-calendar-table td > span,
+.mood-calendar-table td > small {
+  display: block;
+}
+
+.mood-calendar-table td.has-mood {
+  background: #e7f2e9;
+  color: #285d4a;
+  font-weight: 700;
+}
+
+.mood-calendar-table td small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.monthly-mood-row small {
+  grid-column: 2 / -1;
+  color: #64746d;
+}
+
+.assessment-bars {
+  display: flex;
+  min-height: 190px;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 14px 6px 6px;
+  border-bottom: 1px solid #dfe8df;
+}
+
+.assessment-bar-item {
+  display: grid;
+  flex: 0 0 56px;
+  grid-template-rows: 22px 1fr 30px;
+  gap: 6px;
+  min-height: 170px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #496258;
+  cursor: pointer;
+  text-align: center;
+}
+
+.assessment-bar-item:hover,
+.assessment-bar-item:focus-visible {
+  background: #f0f7f1;
+}
+
+.assessment-bar-value,
+.assessment-bar-date {
+  align-self: center;
+  font-size: 11px;
+}
+
+.assessment-bar-track {
+  display: flex;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f0f4f0;
+}
+
+.assessment-bar-track > span {
+  width: 70%;
+  min-height: 3px;
+  border-radius: 8px 8px 2px 2px;
+  background: linear-gradient(180deg, #a5c9a1, #4d9276);
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: minmax(62px, auto) minmax(85px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #edf2ed;
+}
+
+#mood-chart .trend-row {
+  grid-template-columns: 52px 100px minmax(65px, 1fr);
+}
+
+#mood-chart .trend-row small {
+  grid-column: 2 / -1;
+  color: #64746d;
+}
+
+.mood-history-row,
+.progress-entry {
+  padding: 14px;
+  border: 1px solid #e3ece4;
+  border-radius: 14px;
+  background: #fcfdfb;
+}
+
+.mood-history-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mood-history-row > div {
+  display: grid;
+  gap: 5px;
+}
+
+.mood-history-row span,
+.progress-entry p {
+  color: #53685f;
+  font-size: 14px;
+}
+
+.mood-history-row p,
+.progress-entry p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+.progress-entry .detail-header {
+  margin: 0 0 8px;
+}
+
+.notice-stack .info-box {
+  line-height: 1.5;
+}
+
+.notice-stack .small-muted {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-messages {
+  display: grid;
+  gap: 12px;
+  max-height: 360px;
+  min-height: 120px;
+  overflow-y: auto;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #e3ece4;
+  border-radius: 14px;
+  background: #f8faf7;
+}
+
+.assistant-message {
+  max-width: min(90%, 620px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.assistant-message p {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+}
+
+.assistant-user {
+  justify-self: end;
+  background: #e6f2e9;
+}
+
+.assistant-assistant {
+  justify-self: start;
+  border: 1px solid #e1e9e2;
+  background: #fff;
+}
+
+.assistant-form {
+  display: grid;
+  gap: 12px;
+}
+
+.assistant-form textarea,
+.auth-field textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  border: 1px solid #cbd8ce;
+  border-radius: 12px;
+  resize: vertical;
+}
+
+.wellbeing-card-grid,
+.meal-ideas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.wellbeing-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid #e1ebe2;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #fff, #f6faf6);
+}
+
+.wellbeing-card h4,
+.wellbeing-card p {
+  margin: 0;
+}
+
+.wellbeing-card p {
+  color: #53685f;
+  line-height: 1.55;
+}
+
+.breathing-orb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #c4e1ce;
+  box-shadow: 0 0 0 8px #edf5ef;
+}
+
+.breathing-active {
+  animation: gentle-breath 5s ease-in-out infinite alternate;
+}
+
+@keyframes gentle-breath {
+  from {
+    transform: scale(0.85);
+    box-shadow: 0 0 0 6px #edf5ef;
+  }
+  to {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 12px #edf5ef;
+  }
+}
+
+.meal-ideas-grid {
+  margin-bottom: 12px;
+}
+
+.wellbeing-consent {
+  margin: 14px 0;
+  font-size: 14px;
+}
+
+.emergency-panel {
+  border-color: #e8d4cd;
+}
+
+.emergency-guidance {
+  padding: 14px;
+  border-left: 4px solid #bc654f;
+  border-radius: 8px;
+  background: #fff4f0;
+  color: #633d32;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.emergency-panel li {
+  margin: 7px 0;
+  line-height: 1.5;
+}
+
+.reference-list a {
+  color: #286c58;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patient-view {
+    animation: none;
+  }
+
+  .breathing-active {
+    animation: none;
+  }
+
+  .pregnancy-progress-track > span,
+  .trend-track > span {
+    transition: none;
+  }
+}
+
 @media (max-width: 820px) {
   .dashboard-body {
     flex-direction: column;
   }
 
   .sidebar {
+    position: static;
+    flex-basis: auto;
+    height: auto;
     width: 100%;
     border-right: 0;
     border-bottom: 1px solid #dfeae1;
@@ -994,6 +1466,32 @@ textarea {
 
   .dashboard-main {
     padding: 18px;
+  }
+
+  .sidebar {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .nav-stack {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+  }
+
+  .dashboard-header,
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-meta {
+    flex-wrap: wrap;
   }
 
   .doctor-verification-row {
@@ -1004,5 +1502,44 @@ textarea {
   .care-team-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .wellbeing-grid,
+  .panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-main {
+    padding: 12px;
+  }
+
+  .panel-card {
+    padding: 15px;
+  }
+
+  .mood-history-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #mood-chart .trend-row {
+    grid-template-columns: 44px 85px minmax(45px, 1fr);
+  }
+
+  .assistant-message {
+    max-width: 100%;
+  }
+
+  .info-row {
+    grid-template-columns: minmax(88px, 0.8fr) minmax(0, 1.2fr);
+    gap: 8px;
+  }
+
+  .info-row strong,
+  .info-row span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }

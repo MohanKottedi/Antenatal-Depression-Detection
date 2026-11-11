@@ -74,6 +74,74 @@ selectable options. Numeric questions instead give an example format and still
 require the patient to enter their own value. Choosing a nonzero frequency for
 the self-harm item stops screening and starts the safety follow-up.
 
+## Patient wellbeing dashboard
+
+The patient portal includes additional, patient-private wellbeing tools:
+Each module opens as its own main-content view from the persistent sidebar;
+switching modules does not replace the sidebar, and the URL hash supports
+direct links and browser back/forward navigation.
+
+- Pregnancy dating uses 280 days from a recorded LMP; a clinically confirmed
+  due date is stored separately and takes precedence for the displayed due
+  date. Week/day and trimester are estimates, not clinical dating. General
+  trimester guidance links to NHS and ACOG references. Follow-up screening
+  reminders are displayed in the dashboard only; no email or push notification
+  is sent.
+- Daily mood entries save emotion, optional stress and sleep, and an optional
+  journal. A patient can update that day's entry or delete an entry. Mood
+  trends are self-reported wellbeing information and do not diagnose
+  depression.
+- The mental-health panel combines the patient's existing saved screenings and
+  mood entries. It labels the symptom response sum separately from the model
+  prediction and estimated probability. Neither indicates a confirmed clinical
+  change or diagnosis.
+- Pregnancy-assistant conversations are saved to the patient's account and
+  can be deleted. This is separate from the existing 25-question screening
+  conversation. The general assistant uses the existing local Ollama client,
+  does not send data to a configured cloud LLM, and handles detected urgent
+  symptom or self-harm language with a fixed instruction to contact local
+  urgent professional care. AI is not an emergency service or clinician.
+- Relaxation exercises are gentle, selectable-duration activities; completion
+  is recorded only when the timer finishes. Stop if you experience discomfort,
+  pain, dizziness, or breathlessness.
+- Nutrition includes reviewed general meal ideas and safety references. Optional
+  AI meal inspiration uses local Ollama. Saved allergy notes are not sent unless
+  the user explicitly opts in for that request; generated ideas are never
+  guaranteed allergy-safe, so check ingredients and labels. Optional hydration
+  reminders run only while the patient dashboard page remains open; they do not
+  prescribe a fluid amount and defer to the patient's clinician.
+- Emergency contacts are intentionally not guessed. Set only verified,
+  region-specific values in `.env`:
+
+  ```env
+  MATERNAL_SUPPORT_REGION=your-region
+  MATERNAL_EMERGENCY_NUMBER=your-verified-local-number
+  MATERNAL_MATERNITY_CONTACT=your-verified-maternity-service
+  MATERNAL_MENTAL_HEALTH_CONTACT=your-verified-crisis-support
+  ```
+
+  Leave unknown contacts blank. The nearby hospital action asks before
+  requesting browser location and opens Google Maps; it shares location with
+  that provider only after the user grants permission. The feature is optional.
+
+The new data is stored in the additive `20261110_0005` Alembic migration:
+one pregnancy/preferences/reminder record per patient, one mood entry per day,
+assistant conversations and messages, and completed meditation sessions.
+Foreign keys cascade these patient-owned records when a patient profile is
+deleted. Apply the migration with `python -m alembic upgrade head`.
+
+To run the local assistant, install Ollama and download the configured default
+model (`qwen2.5:7b`) before starting the application:
+
+```powershell
+ollama pull qwen2.5:7b
+ollama serve
+```
+
+Keep Ollama reachable at `http://localhost:11434`; no LLM API key is required.
+If Ollama or the model is unavailable, the assistant reports the failure and
+the reviewed, non-AI nutrition ideas remain available.
+
 ## Evaluation limitations and next steps
 
 The repository's `data/pakdataset.csv` has 14,008 rows, of which 7,000 are
@@ -114,12 +182,14 @@ Run the lifecycle and saved-model integration tests from this folder:
 python -m unittest discover -s src -p "test*.py" -v
 ```
 
-Configure the database and application secrets before first startup. Copy
-`.env.example` to `.env`, replace every placeholder with your own values, and
-create the configured MySQL database. Then apply migrations and start the app:
+Configure the database and application secrets before first startup. If `.env`
+does not already exist, copy `.env.example` to `.env`; do not overwrite an
+existing `.env` because it may contain your private configuration. Replace
+placeholders with your own values and create the configured MySQL database.
+Install dependencies, apply migrations, then start the app:
 
 ```powershell
-Copy-Item .env.example .env
+python -m pip install -r requirements.txt
 python -m alembic upgrade head
 python -m uvicorn app:app --reload
 ```
@@ -173,7 +243,31 @@ Doctor authentication:
   consent. Until credentials are configured, the login page explains that
   Google sign-in is unavailable and password login continues to work.
 
-The current repository contains an antenatal depression predictor only. It
+  Background tracker notifications:
+
+  - Install the updated requirements, copy the new VAPID settings from
+    `.env.example` into `.env`, then generate a key pair from the repository root:
+    `python -m src.generate_vapid_keys`. Copy the printed `VAPID_PUBLIC_KEY` into
+    `.env`; keep `VAPID_PRIVATE_KEY` pointing at the generated private PEM file.
+    The private key is ignored by Git and must never be published.
+  - Restart FastAPI after configuring VAPID. Patients can set a local reminder time
+    (default **3:41 PM**) in **Pregnancy tracker**, then explicitly enable
+    notifications on each browser/device and choose independently whether to
+    receive weekly tracker and follow-up screening reminders. The browser detects
+    and saves its IANA timezone, including daylight-saving changes.
+  - Keep a second terminal running the scheduler:
+    `python -m src.notification_scheduler`. It checks every 30 seconds and sends
+    generic, privacy-conscious push notices for a saved follow-up screening date
+    and at each new pregnancy week, using the LMP or confirmed due date. A saved
+    screening date is required for screening reminders; a pregnancy date is
+    required for weekly tracker updates. The worker must stay running for
+    scheduled pushes to be sent. Run exactly one worker process for this app.
+  - Browser push requires HTTPS in production; localhost is allowed for local
+    development. The browser's notification permission must be granted, and the
+    device/browser must remain subscribed. Push delivery depends on the browser's
+    push service and can be affected by its OS notification settings.
+
+  The current repository contains an antenatal depression predictor only. It
 does not include a validated anxiety questionnaire or anxiety prediction
 artifact, so this application does not report an anxiety prediction. Screening
 outputs are estimates and are not diagnoses.
